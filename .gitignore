@@ -1,0 +1,27 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+
+# Dependency caches and compiled files
+**/.lake/
+**/.julia/
+**/__pycache__/
+*.pyc
+*.ji
+*.olean
+*.ilean
+
+# New verification runs can be large. Archived evidence under Julia/results
+# is intentionally versioned.
+/runs/
+/tmp/
+
+# LaTeX build products; checked publication PDFs are intentionally versioned.
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz

@@ -1,0 +1,25 @@
+name = "BabenkoRigorous"
+uuid = "a3b4c5d6-e7f8-9012-abcd-ef1234567890"
+version = "0.1.0"
+authors = ["Tristan Buckmaster"]
+
+[deps]
+Arblib = "fb37089c-8514-4489-9461-98f9c8763369"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Arblib = "1"
+CairoMakie = "0.15.10"
+FFTW = "1"
+LinearAlgebra = "1.12.0"
+Plots = "1.41.6"
+Random = "1.11.0"
+Statistics = "1.11.1"
+Test = "1.11.0"
+julia = "1.9"

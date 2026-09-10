@@ -1,0 +1,397 @@
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{microtype}
+\usepackage{caption}
+\usepackage{float}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  frame=single,
+  framesep=3pt,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+}
+
+\newtheorem{proposition}{Proposition}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+\title{\textbf{Milestones M5--M6: \texttt{ResidualBound.jl}}\\[0.4em]
+\large Certified $\|\mathcal{R}\|_\infty$ Bound for the Babenko Equation\\[0.2em]
+\normalsize \texttt{wave-cap} --- Computer-Assisted Proof for the Babenko Equation}
+\author{BabenkoRigorous.jl}
+\date{May 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe the implementation and validation of \texttt{ResidualBound.jl},
+covering Milestones M5 (pure gravity, $\beta=0$) and M6 (gravity-capillary, $\beta\neq 0$).
+The module exports \texttt{residual\_bound}, a single function that returns a certified
+Arb upper bound on
+\[
+  \|\mathcal{R}\|_\infty
+  = \sup_{u\in[0,2\pi]}
+  \bigl|\mu\,H[y_u] - y - y\,H[y_u] - H[y\,y_u]
+  + \beta\,\partial_u(y_u/D) - \beta\,H[\partial_u G]\bigr|,
+\]
+where $D = \sqrt{y_u^2+(1+H[y_u])^2}$ and $G=(1+H[y_u])/D$.
+Both $\beta = 0$ (M5) and $\beta \neq 0$ (M6) branches mix Path~A (exact
+\texttt{TrigPoly} algebra for $H[y_u]$ and other trig-poly arguments) with
+Path~B (certified DFT Hilbert from M4) where the argument is not a trig
+polynomial.  Specifically: $H[y\cdot y_u]$ is routed through Path~B even in
+M5, and $H[\partial_u G]$ joins it in M6.  Both Path~B calls use the new
+\texttt{fft\_hilbert\_series} interface, supplying \texttt{Gpp\_bound} and
+\texttt{Gppp\_bound} derivative-margin bounds extracted from extended-order
+\texttt{TaylorSeries} chains.  All thirteen milestone tests
+(T5.1--T5.6, T6.1--T6.7) pass.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+%% -------------------------------------------------------------------
+\section{The Babenko Residual}
+%% -------------------------------------------------------------------
+
+The Babenko water-wave equation in conformal variables $u$ reads
+\begin{equation}\label{eq:babenko}
+  \mu\,H[y_u] = y + y\,H[y_u] + H[y\,y_u]
+  - \beta\,\partial_u\!\left(\frac{y_u}{D}\right)
+  + \beta\,H\!\left[\partial_u G\right],
+\end{equation}
+where $y:\mathbb{T}\to\mathbb{R}$ is the approximate solution, $H$ is the periodic
+Hilbert transform, $\mu>0$ is the speed parameter, $\beta\geq 0$ is the (Bond-number-like)
+surface-tension parameter, and
+\[
+  D(u) = \sqrt{y_u(u)^2 + (1+H[y_u](u))^2}, \qquad
+  G(u) = \frac{1+H[y_u](u)}{D(u)}.
+\]
+Given a finite cosine series
+\[
+  y(u) = \frac{a_0}{2} + \sum_{k=1}^{N} a_k\cos(ku),
+\]
+the \emph{residual} is
+\begin{equation}\label{eq:residual}
+  \mathcal{R}(u)
+  = \mu\,H[y_u](u) - y(u) - y(u)\,H[y_u](u) - H[y\,y_u](u)
+  + \beta\,\partial_u\!\left(\frac{y_u}{D}\right)(u)
+  - \beta\,H[\partial_u G](u).
+\end{equation}
+
+%% -------------------------------------------------------------------
+\section{Computation Strategy}
+%% -------------------------------------------------------------------
+
+\subsection{Two paths}
+
+The residual separates into terms handled by two certified paths:
+
+\begin{description}
+\item[Path A (exact trig-poly arithmetic).]
+$H[y_u]$ is the only Hilbert application whose argument is a trig polynomial
+\emph{as a stored object}.  It is computed exactly using the M1 \texttt{TrigPoly}
+algebra and converted to certified \texttt{TaylorSeries} via
+\texttt{trigpoly\_to\_taylor}.
+
+\item[Path B (DFT Hilbert, certified aliasing).]
+$H[y\cdot y_u]$ and $H[\partial_u G]$ are both routed through Path~B.
+Although $y\cdot y_u$ is mathematically a trig polynomial of degree $\le 2N$,
+in the current pipeline it is held as a \texttt{TaylorSeries}
+\texttt{ts\_y\_yu} (product of two \texttt{TaylorSeries} objects); applying
+Path~B to it via \texttt{fft\_hilbert\_series} is uniform with the
+$H[\partial_u G]$ case, which is genuinely non-polynomial.
+Both Path~B calls use the rigorous aliasing bound
+$\varepsilon_{\rm alias} = 4C_p/((p{-}1)(N/2-1)^{p-1})$ per ball and the
+Fourier-tail \texttt{sup\_bounds} formula $\|\hat H[G^{(m)}]\|_\infty \le
+\|G^{(m+2)}\|_\infty \cdot \pi^2/3$ for the output series (see M4 report).
+\end{description}
+
+\subsection{Taylor series representation}
+
+All terms are assembled as \texttt{TaylorSeries} objects.  Recall the
+key primitives from M2:
+\begin{itemize}
+  \item \texttt{trigpoly\_to\_taylor(f, N\_grid, M\_order)} builds the matrix
+        $[f^{(m)}(u_j)]_{j,m}$ and the full \texttt{sup\_bounds} vector
+        $\texttt{sup\_bounds}[m+1] \ge \|f^{(m)}\|_\infty$ for $m = 0,\ldots,M{+}1$.
+  \item \texttt{TaylorSeries} multiplication uses the Leibniz formula at
+        grid points and exact-Leibniz on the \texttt{sup\_bounds} vectors:
+        $\texttt{sup\_bounds}_{f g}[m{+}1] = \sum_{k=0}^{m} \binom{m}{k}
+        \,\texttt{sup\_bounds}_f[k{+}1]\,\texttt{sup\_bounds}_g[m{-}k{+}1]$.
+  \item \texttt{sup\_bound(ts)} returns the certified $\sup|f|$ via the
+        Taylor remainder bound $\texttt{sup\_bounds}[\mathrm{end}]\cdot h^{M+1}/(M+1)!$.
+\end{itemize}
+
+\subsection{M5 assembly (\texorpdfstring{$\beta=0$}{beta=0})}
+
+\begin{enumerate}
+  \item Build \texttt{TrigPoly} objects for $y$, $y_u$, $H[y_u]$ (Path A, exact).
+  \item Convert to \texttt{TaylorSeries} at order $M$: \texttt{ts\_y}, \texttt{ts\_yu}, \texttt{ts\_Hyu}.
+  \item Multiply: \texttt{ts\_y\_Hyu} $=$ \texttt{ts\_y}$\times$\texttt{ts\_Hyu};
+        \texttt{ts\_y\_yu} $=$ \texttt{ts\_y}$\times$\texttt{ts\_yu}.
+  \item Build the extended-order pair \texttt{ts\_y\_g}, \texttt{ts\_yu\_g}
+        at order $M_h = M + 2$ and multiply to get $\texttt{ts\_y\_yu\_h}$;
+        extract
+        $\mathrm{Gpp\_bound} = \texttt{ts\_y\_yu\_h.sup\_bounds}[M{+}3]$ and
+        $\mathrm{Gppp\_bound} = \texttt{ts\_y\_yu\_h.sup\_bounds}[\mathrm{end}]$.
+        These supply the two derivative-margin bounds that
+        \texttt{fft\_hilbert\_series} requires.
+  \item Path~B: \texttt{ts\_Hyyu} $= H[\texttt{ts\_y\_yu}]$ via
+        \texttt{fft\_hilbert\_series}(\texttt{ts\_y\_yu}, $N$;
+        \texttt{Gpp\_bound}, \texttt{Gppp\_bound}, \ldots).
+  \item Assemble: \texttt{ts\_R} $=\mu\,$\texttt{ts\_Hyu}$-$\texttt{ts\_y}$-$\texttt{ts\_y\_Hyu}$-$\texttt{ts\_Hyyu}.
+  \item Return \texttt{sup\_bound(ts\_R)}.
+\end{enumerate}
+
+\subsection{M6 assembly (\texorpdfstring{$\beta\neq 0$}{beta neq 0})}
+
+Steps 1--7 are identical to M5.  Additional steps:
+\begin{enumerate}
+  \setcounter{enumi}{7}
+  \item Certify $D$ positivity at order $M_1 = M+1$:
+        $(D_{\rm lower}, \texttt{ts\_D}) =$ \texttt{dmin\_bound(y, N, M\_1)}.
+        If $D_{\rm lower}\leq 0$, the computation aborts.
+  \item Invert $D$: \texttt{ts\_invD} $= 1/D$ via \texttt{inv\_series}.
+  \item Compute $\partial_u(y_u/D)$: build \texttt{ts\_yu\_M1} at order $M_1$,
+        multiply $\texttt{ts\_yu\_M1}\times\texttt{ts\_invD}$, then
+        \texttt{deriv\_series} to get $\texttt{ts\_C1}$ at order $M$.
+  \item Compute $G = B/D$ where $B = 1 + H[y_u]$: construct \texttt{ts\_B}
+        at order $M_1$ from the iterated $H[y_u]$ derivatives, then
+        $\texttt{ts\_G} = \texttt{ts\_B}\times\texttt{ts\_invD}$.
+        Differentiate: \texttt{ts\_Gu} $= \partial_u G$ via \texttt{deriv\_series},
+        landing at order $M$.
+  \item Build the M3-extended chain at order $M_3 = M+3$:
+        $(D_{\rm lower,3}, \texttt{ts\_D3}) =$ \texttt{dmin\_bound(y, N, M\_3)};
+        $\texttt{ts\_invD3} =$ \texttt{inv\_series(ts\_D3, $D_{\rm lower,3}$)};
+        $\texttt{ts\_B3}$ at order $M_3$ from iterated $H[y_u]$;
+        $\texttt{ts\_G3} = \texttt{ts\_B3}\times\texttt{ts\_invD3}$.
+        Extract
+        $\mathrm{Gpp\_bound} = \texttt{ts\_G3.sup\_bounds}[M{+}4]$ (bounds
+        $G^{(M+3)} = (G_u)^{(M+2)}$) and
+        $\mathrm{Gppp\_bound} = \texttt{ts\_G3.sup\_bounds}[M{+}5]$ (bounds
+        $G^{(M+4)} = (G_u)^{(M+3)}$).
+  \item Certified Hilbert: \texttt{ts\_HGu} $= H[\partial_u G]$ via
+        \texttt{fft\_hilbert\_series}(\texttt{ts\_Gu}, $N$;
+        \texttt{Gpp\_bound}, \texttt{Gppp\_bound}, \ldots).
+  \item Assemble capillary: \texttt{ts\_R} $\mathrel{+}= \beta\,$\texttt{ts\_C1}
+        $- \beta\,$\texttt{ts\_HGu}.
+  \item Return \texttt{sup\_bound(ts\_R)}.
+\end{enumerate}
+
+The extra Taylor orders ($M_1 = M+1$ for intermediate computations of
+$\partial_u(y_u/D)$ and $\partial_u G$; $M_3 = M+3$ for extracting the
+derivative-margin bounds for the Path~B \texttt{fft\_hilbert\_series} call)
+ensure that after one application of \texttt{deriv\_series} the capillary
+terms land at the same order $M$ as the base residual, and that the
+Fourier-tail bound on $\|\hat H[G^{(M)}]\|_\infty$ has two derivative-margin
+bounds available.
+
+%% -------------------------------------------------------------------
+\section{Implementation Notes}
+%% -------------------------------------------------------------------
+
+\subsection{D positivity sharing}
+Computing $y_u/D$ and $G=(1+H[y_u])/D$ both require $D^{-1}$.
+Rather than calling \texttt{compute\_G\_taylor} (which re-runs \texttt{dmin\_bound}
+internally), the M6 branch calls \texttt{dmin\_bound} once and shares
+\texttt{ts\_invD} between $y_u/D$ and $G = B \cdot D^{-1}$.  This halves the
+cost of the most expensive step.
+
+\subsection{sup\_bound robustness}
+An issue was discovered and fixed in \texttt{sup\_bound}:
+the original code used \texttt{Arblib.is\_positive(s - best)} to track the
+running maximum, but when the \texttt{TaylorSeries} derivs are Arb balls that
+straddle zero (a common occurrence at small $N_{\rm fft}$ where the DFT aliasing
+radius is large), \texttt{abs(arb\_ball)} returns a ball with lower bound~0,
+making \texttt{is\_positive} fail.
+The fix: compare Float64 upper bounds of $s$ and \texttt{best}, which is valid
+because \texttt{ubound}$(s)$ is a certified upper bound on the Taylor expansion
+for that subinterval, and taking the max of upper bounds gives a valid certified
+upper bound on the supremum.
+
+\subsection{Tightness of bounds}
+The certified/Float64 ratio measures over-estimation.  For $\beta=0$
+(M5, random seeds) the ratio is $1.015$--$1.040$, showing the bound is
+essentially tight.  For $\beta\neq 0$ (M6, random seeds) the ratio varies
+considerably with the input: for the smooth linear cases it is
+$\approx 1.1$--$3.0$, but for high-frequency random inputs it can blow up to
+$10^3$--$10^7$.  This is the genuine cost of correctness for
+\texttt{inv\_series} and \texttt{sqrt\_series}: the previous formulas
+silently ignored intermediate-derivative bounds (audit C1--C2) and were
+tighter than the truth would allow; the new Fa\`a di Bruno
+composition correctly tracks derivative growth through the Bell-polynomial
+expansion, and high-frequency inputs incur genuinely large bounds on
+$\|(1/f)^{(M+1)}\|_\infty$ and $\|(\sqrt f)^{(M+1)}\|_\infty$.  For the
+specific smooth candidates used in the existence proof, the bound remains
+tight.
+
+%% -------------------------------------------------------------------
+\section{Milestone Tests}
+%% -------------------------------------------------------------------
+
+\subsection{M5 Tests (\texorpdfstring{$\beta=0$}{beta=0})}
+
+\subsubsection*{T5.1 --- Small-amplitude Stokes wave}
+Input: $y = -\varepsilon^2/2 + \varepsilon\cos u + \varepsilon^2\cos 2u$,
+$\mu = 1+\varepsilon^2$, $\varepsilon = 0.15$, $\beta=0$.
+\[
+  \text{Certified bound} = 0.01750 \leq 0.05. \quad \checkmark
+\]
+
+\subsubsection*{T5.2 --- Containment}
+Float64 estimate via direct DFT on $N=512$ grid: $1.744\times10^{-2}$.
+Certified bound $1.750\times10^{-2} \geq 1.744\times10^{-2}$. $\checkmark$
+
+\subsubsection*{T5.3 --- Convergence in $\varepsilon$}
+\begin{center}
+\begin{tabular}{cc}
+\toprule
+$\varepsilon$ & Certified bound \\
+\midrule
+0.01 & $2.85\times10^{-5}$ \\
+0.05 & $1.06\times10^{-3}$ \\
+0.10 & $6.02\times10^{-3}$ \\
+0.15 & $1.75\times10^{-2}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Bounds increase monotonically with $\varepsilon$. $\checkmark$
+
+\subsubsection*{T5.4 --- Convergence in Taylor order}
+\begin{center}
+\begin{tabular}{cc}
+\toprule
+$M_{\rm order}$ & Certified bound \\
+\midrule
+2 & $1.802\times10^{-2}$ \\
+4 & $1.750\times10^{-2}$ \\
+6 & $1.7499\times10^{-2}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Bound decreases then plateaus: the residual itself is the floor. $\checkmark$
+
+\subsubsection*{T5.5 --- $\beta=0$ branch}
+$\beta=0$ returns a positive, finite bound. $\checkmark$
+
+\subsubsection*{T5.6 --- Random containment (10 seeds)}
+All 10 certified bounds contain the Float64 estimate.
+Ratio range: $[1.015, 1.040]$. $\checkmark$
+
+\subsection{M6 Tests (\texorpdfstring{$\beta\neq 0$}{beta neq 0})}
+
+\subsubsection*{T6.1 --- Linear gravity-capillary mode}
+Input: $y = 0.05\cos u$, $\mu = 1+\beta = 1.05$, $\beta=0.05$, $N_{\rm grid}=256$.
+\[
+  \text{Certified bound} = 3.696\times10^{-3} \leq 0.02. \quad \checkmark
+\]
+$D_{\rm lower} = 0.950 > 0$, so the D-positivity certificate holds.
+The bound is materially tighter than the previous M6 result of
+$5.58\times10^{-3}$ at the same $N$: this is the direct consequence of the
+Fourier-tail $\|\hat H[G^{(M)}]\|_\infty \le \|G^{(M+2)}\|_\infty \cdot \pi^2/3$
+formula replacing the (unsound) Lebesgue-constant estimate (audit C1).
+For smooth $G$ the $\pi^2/3 \approx 3.29$ factor is much smaller than the
+old $2\log N + 2 \approx 13.1$ at $N=256$.
+
+\subsubsection*{T6.2 --- $\beta=0$ recovery}
+Passing $\beta=0$ to the M6 code returns the identical bound as M5.
+(The M5 and M6 branches coincide at $\beta=0$.) $\checkmark$
+
+\subsubsection*{T6.3 --- D positivity certified}
+\[
+  D_{\rm lower} = 0.950 > 0.01. \quad \checkmark
+\]
+
+\subsubsection*{T6.4 --- Aliasing subdominant at large $N_{\rm fft}$}
+\begin{center}
+\begin{tabular}{cc}
+\toprule
+$N_{\rm fft}$ & Certified bound \\
+\midrule
+256  & $3.696\times10^{-3}$ \\
+2048 & $3.691\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+At $N = 256$ the certified bound is already within $0.15\%$ of the
+$N = 2048$ value, confirming the aliasing contribution is essentially
+saturated.  (With the previous Lebesgue-constant formula the gap was
+$\approx 50\%$.) $\checkmark$
+
+\subsubsection*{T6.5 --- Convergence in $N_{\rm fft}$}
+\begin{center}
+\begin{tabular}{cc}
+\toprule
+$N_{\rm fft}$ & Certified bound \\
+\midrule
+128  & $3.714\times10^{-3}$ \\
+256  & $3.696\times10^{-3}$ \\
+512  & $3.692\times10^{-3}$ \\
+1024 & $3.691\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Bounds decrease monotonically as $N$ increases, converging to the residual
+floor as the Path~B aliasing radius shrinks.  $\checkmark$
+
+\subsubsection*{T6.6 --- Random containment, $\beta\neq 0$ (10 seeds)}
+All 10 certified bounds contain the Float64 estimate.  Ratio range:
+$[1.12, 7.7\times10^{6}]$, with the large values arising for high-frequency
+random inputs (large $N$ modes); this is the genuine cost of correctness
+in \texttt{inv\_series}/\texttt{sqrt\_series} no longer ignoring derivative
+bounds.  For the smooth candidates relevant to the existence proof the ratios
+are $\le 5$.  The test additionally asserts \texttt{all(isfinite, ratios)} and
+\texttt{maximum(ratios) < 1e8} so silent regressions to vacuous / infinite
+bounds are caught.  $\checkmark$
+
+\subsubsection*{T6.7 --- $\beta\neq 0$ with $M_{\rm order} = 1$ (smallest legal)}
+Audit gap closed.  All M6 tests above use $M_{\rm order} = 4$;
+T6.7 exercises the edge case $M_{\rm order} = 1$ where the extended chains
+collapse to $M_1 = 2$ and $M_3 = 4$.  Input: same Stokes-like
+$y = 0.05\cos u$, $\mu = 1.05$, $\beta = 0.05$, $N_{\rm grid} = 256$.
+\[
+  \text{Certified bound} = 4.475 \times 10^{-3} \le 0.05. \quad \checkmark
+\]
+The bound is larger than T6.1's $3.696\times10^{-3}$ at $M_{\rm order} = 4$
+(fewer Taylor terms means looser remainder), as expected.  $\checkmark$
+
+%% -------------------------------------------------------------------
+\section{Summary and Next Steps}
+%% -------------------------------------------------------------------
+
+\texttt{ResidualBound.jl} now supports both the pure-gravity ($\beta=0$)
+and gravity-capillary ($\beta\neq 0$) Babenko residual.  The key numbers:
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+Milestone & Primary test case & Certified bound \\
+\midrule
+M5 ($\beta=0$) & Stokes wave $\varepsilon=0.15$ & $1.750\times10^{-2}$ \\
+M6 ($\beta=0.05$) & Grav-cap $\varepsilon=0.05$, $N_{\rm grid}=256$ & $3.696\times10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For the smooth candidates relevant to the existence proof, the
+certified/Float64 ratio is $\le 5\times$ throughout.  High-frequency random
+inputs in T6.6 can produce much looser ratios; these reflect the genuine
+growth of $\|(1/D)^{(M+1)}\|_\infty$ for non-smooth inputs and are not a
+defect of the bound.
+
+The next milestone is M7 (\texttt{Certificate.jl}): writing a
+Lean-parseable certificate file from the Julia output, enabling the Lean
+proof of the bound.
+
+\end{document}
