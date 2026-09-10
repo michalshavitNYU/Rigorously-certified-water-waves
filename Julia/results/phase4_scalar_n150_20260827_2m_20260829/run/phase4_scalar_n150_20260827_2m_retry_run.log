@@ -1,0 +1,10 @@
+candidate=phase4_20260827_scalar_N150
+workdir=/scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_work
+logdir=/scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_logs
+shard_size=1024
+N_grid=2000000
+workers=8
+worker_threads=4
+main_threads=8
+julia=apptainer exec --bind /scratch:/scratch /home/tb97/transit-cap-ccf/cap-ccf.sif julia --startup-file=no --compiled-modules=no --project=.
+ALL_STAGES_COMPLETE

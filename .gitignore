@@ -25,3 +25,6 @@
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# Preserve the original Crunchy2 run and stage logs as publication evidence.
+!Julia/results/phase4_scalar_n150_20260827_2m_20260829/run/**/*.log

@@ -1,0 +1,35 @@
+candidate=phase4_20260827_scalar_N150
+coeff_path=/scratch/ms14479/wave-cap-phase4-run/BabenkoRigorous/scripts/../pinn_a_coeffs_N150_phase4_20260827.txt
+stage=s3  coeff_count=151  lambda=1.1687864806007486  beta=0.498
+N_grid=2000000  M_order=6  prec=128  shard_size=1024  threads=8
+bound midpoint = +1.9928311263803702e-14
+bound radius   = 1.5799937398052128e-13
+bound interval = [-1.3807106271671758e-13, +1.7792768524432498e-13]
+bound ubound   = 1.7792768524432498e-13
+D_lower lbound = 3.4465883518530394e-01
+certificate = /scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_work/CertificatePhase4ScalarN150Phase420260827.lean
+certificate module = WaveCAP.CertificatePhase4ScalarN150Phase420260827
+stage=s3 elapsed = 628.2 s  peak_rss = 0.477 GB (Sys.maxrss)
+	Command being timed: "apptainer exec --bind /scratch:/scratch /home/tb97/transit-cap-ccf/cap-ccf.sif julia --startup-file=no --compiled-modules=no --project=. scripts/stage_run_phase4_scalar_n150_20260827.jl s3 /scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_work 1024 2000000"
+	User time (seconds): 1855.64
+	System time (seconds): 37.81
+	Percent of CPU this job got: 266%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 11:49.78
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 500492
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 2933
+	Minor (reclaiming a frame) page faults: 3499693
+	Voluntary context switches: 182722
+	Involuntary context switches: 11686
+	Swaps: 0
+	File system inputs: 98296
+	File system outputs: 1180176
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0

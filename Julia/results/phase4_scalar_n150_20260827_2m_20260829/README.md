@@ -1,4 +1,4 @@
-# Phase 4 scalar N150, 2M-grid certificate
+# Crunchy2 run: phase 4 scalar N150, 2M-grid certificate
 
 This directory preserves the successful interval-arithmetic verification run
 for `pinn_a_coeffs_N150_phase4_20260827.txt` and the subsequent additive
@@ -30,6 +30,37 @@ D_lower lbound   = 3.4465883518530394e-01
 The run log ends with `ALL_STAGES_COMPLETE`, and the final `s3` process has
 exit status zero.
 
+## Browse the run
+
+The [expanded run directory](run/) preserves the original archive paths and
+file contents, including the successful retry completed on August 29, 2026.
+
+- [Run configuration and completion log](run/phase4_scalar_n150_20260827_2m_retry_run.log)
+- [Stage logs, including all eight parallel workers](run/phase4_scalar_n150_20260827_2m_retry_logs/)
+- [Final residual, denominator bound, and final-stage timing](run/phase4_scalar_n150_20260827_2m_retry_logs/s3.log)
+- [Residual Arb dump](run/phase4_scalar_n150_20260827_2m_retry_work/staged_bound.arbdump)
+- [Denominator lower-bound Arb dump](run/phase4_scalar_n150_20260827_2m_retry_work/staged_dlower.arbdump)
+- [Original generated Lean certificate](run/phase4_scalar_n150_20260827_2m_retry_work/CertificatePhase4ScalarN150Phase420260827.lean)
+- [Exact coefficient input](run/wave-cap-phase4-run/BabenkoRigorous/pinn_a_coeffs_N150_phase4_20260827.txt)
+- [Archived Julia stage driver](run/wave-cap-phase4-run/BabenkoRigorous/scripts/stage_run_phase4_scalar_n150_20260827.jl)
+- [Archived parallel cluster launcher](run/wave-cap-phase4-run/BabenkoRigorous/scripts/p1_parallel_run_phase4_scalar_n150_20260827.sh)
+
+The run used eight parallel workers with four Julia threads each; the main
+stages used eight threads. The physical parameters above enter the Julia
+Babenko residual as `mu = lambda^2` and `beta_Babenko = beta^2`.
+
+This is the archived completed run evidence, not the full cluster working
+directory: the large per-grid intermediate shard arrays and the container
+image are not included. The archived scripts retain their historical paths;
+use the [Julia reproduction guide](../../README.md) with the current package
+layout. Uploading these files did not rerun the numerical verification.
+
+The original generated certificate is retained as historical output, before
+the half-DC convention adjustment. For the publication statement, use the
+half-DC certificate and audited entry points linked below. The Lean theorem
+is conditional on certificate-specific numerical assumptions; these archived
+outputs are not an independent Lean replay of the interval computation.
+
 ## Archives
 
 `phase4_scalar_n150_20260827_2m_results_20260829.tgz` contains the raw run
@@ -48,7 +79,9 @@ extracted.
 ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43  wave-cap-half-dc-alignment-20260830.tgz
 ```
 
-The half-DC Lean certificate and its audited entry points are stored in
-`WaveCAP/WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean`,
-`WaveCAP/WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean`, and
-`WaveCAP/WaveCAP/AuditPhase4ScalarN150HalfDC.lean`.
+## Publication Lean files
+
+- [Half-DC certificate](../../../Lean/WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean)
+- [Main theorem](../../../Lean/WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean)
+- [Axiom audit](../../../Lean/WaveCAP/AuditPhase4ScalarN150HalfDC.lean)
+- [Lean guide and numerical assumptions](../../../Lean/README.md)

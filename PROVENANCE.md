@@ -40,6 +40,12 @@ The two archives in
 ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43  wave-cap-half-dc-alignment-20260830.tgz
 ```
 
+The numerical run archive is also expanded in that directory under `run/`.
+Its original file paths and contents are preserved; the archived intermediate
+working-directory subset contains only the generated certificate and two
+scalar dumps, not the large per-grid shard arrays. The half-DC conversion
+archive remains separate from this historical numerical output.
+
 The mathematical note distinguishes the named Lean theorems from their
 numerical hypotheses and records the difference between the current formal
 tightening construction and Julia's scalar recursion. Those distinctions also

@@ -60,6 +60,8 @@ initialization.
 
 ## Certified result and scope
 
+Browse the [Crunchy2 run logs, scalar outputs, input, and original scripts](Julia/results/phase4_scalar_n150_20260827_2m_20260829/README.md).
+
 The archived phase-4 degree-150 candidate uses 151 coefficients, 2,000,000 grid
 points, Taylor order 6, 128-bit Arb precision, and 1024-row shards. Its full
 residual upper endpoint is approximately `1.7792768524432498e-13`, and its

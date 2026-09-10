@@ -33,8 +33,8 @@ precision 128 bits, and `extra_orders=0`. It uses
 Archived logs, Arb endpoints, original run scripts, and certificate-conversion
 evidence are in
 [`results/phase4_scalar_n150_20260827_2m_20260829/`](results/phase4_scalar_n150_20260827_2m_20260829/README.md).
-That archive's README uses the old directory names; the current Lean project
-is `../Lean/`.
+The original archive is also expanded there into a browsable `run/` directory,
+with links to individual logs, scalar dumps, inputs, and scripts.
 
 ## Staged reproduction without a cluster-specific launcher
 
