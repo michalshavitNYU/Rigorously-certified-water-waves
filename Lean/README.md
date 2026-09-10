@@ -18,6 +18,47 @@ Elan reads the local `lean-toolchain` file; no global toolchain change is needed
 The pinned Lean and Mathlib versions are `v4.29.0-rc6`. The manifests are kept in
 version control, while `.lake/` is a local dependency and build cache.
 
+## Verification status
+
+**Checked 2026-09-09: sorry-free proofs, two explicit numerical axioms, and no
+end-to-end Lean verification of the Crunchy2 computation.** The audit target
+`WaveCAP.AuditPhase4ScalarN150HalfDC` built successfully in the source checkout,
+whose Lean sources and pinned build configuration were verified byte-for-byte
+identical to this publication copy. The project proof sources contain no
+`sorry` or `admit` placeholders. The audit's `#print axioms` output for
+`WaveCAP.residual_bounded_by_phase4_n150_half_dc_certificate` lists exactly:
+
+```text
+propext
+Classical.choice
+Quot.sound
+WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC.cert_arb_dmin_bound
+WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC.cert_arb_sup_bound_le_eps0
+```
+
+The first three are Lean's standard logical axioms; there is no `sorryAx`
+dependency. The remaining two are explicit, unproved-in-Lean numerical
+assumptions declared in
+[`CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean`](WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean):
+
+- `cert_arb_dmin_bound` asserts that `DLower_cert` is positive and is a lower
+  bound for `D` at every real argument.
+- `cert_arb_sup_bound_le_eps0` assumes that denominator assertion and supplies
+  the residual bound on `[0, 2*pi]`.
+
+Lean proves periodic extension and the decimal corollaries from these
+assumptions. They record the final Julia/Arb conclusions, not merely the
+correctness of primitive interval arithmetic. Lean does not replay the grid,
+FFT, interval operations, or final Taylor scan, and this certificate does not
+instantiate the full generic analytic pipeline with serialized intermediate
+interval data. Removing the two numerical axioms would require additional
+verification work; it is not a completed milestone.
+
+Historical Markdown plans may contain illustrative `sorry` stubs and obsolete
+axiom counts. Those examples are not compiled proof files. Use this section
+and the current audit module for publication claims, rather than the older
+milestone descriptions in the [Lean roadmap](../docs/source_notes/lean_roadmap_2026-05-23.md).
+
 ## Publication entry points
 
 - `WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean` contains the

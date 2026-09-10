@@ -1,5 +1,16 @@
 # Lean 4 Proof Design: Babenko Water-Wave Residual Bound
 
+> **Historical design; current status checked 2026-09-09.** The publication
+> proof sources are sorry-free, and the dedicated audit reports no `sorryAx`
+> dependency. The final residual theorem nevertheless assumes two explicit
+> numerical axioms: `cert_arb_dmin_bound` and `cert_arb_sup_bound_le_eps0`, in
+> addition to Lean's standard `propext`, `Classical.choice`, and `Quot.sound`.
+> Lean does not independently verify the Crunchy2 interval computation.
+> Claims below about accepted `sorry` gaps or other axiom counts belong to the
+> original design, and its `sorry` code examples are not compiled proofs.
+> See the [current Lean verification status](../../Lean/README.md#verification-status)
+> and the [updated roadmap notice](lean_roadmap_2026-05-23.md).
+
 **Project:** Computer-assisted proof (CAP) that $\|R\|_{L^\infty([0,2\pi])} \leq \varepsilon$
 for the surface-tension Babenko water-wave equation.
 

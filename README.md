@@ -67,12 +67,27 @@ points, Taylor order 6, 128-bit Arb precision, and 1024-row shards. Its full
 residual upper endpoint is approximately `1.7792768524432498e-13`, and its
 denominator lower endpoint is approximately `0.34465883518530394`.
 
-The dedicated Lean theorem proves the resulting global residual statement
-conditional on two certificate-specific numerical assumptions: the denominator
-lower bound and the residual bound on one period. The general analytic lemmas
-are proved in Lean. The repository does not claim that Lean re-executes the Arb
-computation, or that a small residual by itself proves existence of an exact
-nearby water wave.
+**Current Lean status (2026-09-09): sorry-free proofs, two explicit numerical
+axioms, and no end-to-end Lean verification of the Crunchy2 computation.**
+The publication audit built successfully, and the final residual theorem has
+no `sorryAx` dependency. Beyond Lean's standard `propext`, `Classical.choice`,
+and `Quot.sound`, it depends on exactly two certificate-specific axioms:
+
+- `cert_arb_dmin_bound`: positivity and the global denominator lower bound.
+- `cert_arb_sup_bound_le_eps0`: the residual bound on one period, given the
+  denominator bound.
+
+These axioms record final numerical conclusions from Julia/Arb, not proofs of
+individual interval operations inside Lean. The general analytic lemmas and
+the extension to all real arguments are proved in Lean, but the dedicated
+certificate does not instantiate the full analytic pipeline with serialized
+Crunchy2 intermediate data. A small residual by itself does not prove
+existence of an exact nearby water wave.
+
+See [the Lean audit status](Lean/README.md#verification-status) for the checked
+dependency list. The [historical Lean roadmap](docs/source_notes/lean_roadmap_2026-05-23.md)
+has a current-status notice; its older milestone claims are not the present
+publication verification status.
 
 ## Mathematical documentation
 

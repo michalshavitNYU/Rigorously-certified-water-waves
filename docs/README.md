@@ -1,5 +1,14 @@
 # Mathematical and implementation documentation
 
+## Current Lean status
+
+The [Lean verification status](../Lean/README.md#verification-status) records
+the successful 2026-09-09 publication audit: no `sorryAx` dependency, exactly
+two certificate-specific numerical axioms in addition to Lean's three
+standard logical axioms, and no end-to-end Lean verification of the Crunchy2
+interval computation. The two numerical conclusions remain assumptions in
+Lean; sorry-free does not mean independently verified numerical data.
+
 ## Current standalone note
 
 [`y_hilbert_yu_interval_estimate.tex`](y_hilbert_yu_interval_estimate.tex) is a
@@ -29,9 +38,12 @@ The note was prepared against the original source layout. In its references,
 ## Historical source notes
 
 `source_notes/` preserves the upstream tracked implementation notes, audits,
-and development plans. They retain their original dates, paths, and status
-descriptions. Use the current source and the dedicated half-DC certificate
-when interpreting historical plans or claims about earlier milestones.
+and development plans. Their historical bodies retain their original dates,
+paths, and status descriptions. Current-status notices have been added to the
+Lean roadmap and proof design. Older claims of seven numerical axioms or
+unfinished `sorry` proofs do not describe the current publication result;
+illustrative `sorry` stubs in Markdown are not compiled Lean proofs. Use the
+current source and the dedicated half-DC audit when interpreting those plans.
 
 Package-specific Julia reports are also retained under `Julia/docs/`.
 See [PROVENANCE.md](../PROVENANCE.md) for the source commit and directory mapping.

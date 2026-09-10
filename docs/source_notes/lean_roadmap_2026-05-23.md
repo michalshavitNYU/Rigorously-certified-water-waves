@@ -1,5 +1,38 @@
 # Lean roadmap — deriving `cert_residual_le` instead of axiomatizing it
 
+## Current publication status (2026-09-09)
+
+**Sorry-free proofs, two explicit numerical axioms, and no end-to-end Lean
+verification of Crunchy2.** The dedicated half-DC publication audit builds
+successfully and reports no `sorryAx` dependency. Its final residual theorem
+depends on `propext`, `Classical.choice`, `Quot.sound`, and exactly these two
+certificate-specific numerical axioms:
+
+- `cert_arb_dmin_bound`: positivity and the global denominator lower bound.
+- `cert_arb_sup_bound_le_eps0`: the residual bound on one period, conditional
+  on the denominator assertion.
+
+These are final numerical conclusions imported from Julia/Arb, not merely
+axioms for primitive rounding operations. Generic analytic lemmas are proved,
+but the publication certificate does not connect serialized Crunchy2
+intermediate arrays to those lemmas to derive the two numerical assertions.
+Lean proves periodic extension and the certificate corollaries from them.
+See the [current Lean verification status](../../Lean/README.md#verification-status)
+for the audited dependency list and reproduction command.
+
+**Remaining work for an end-to-end Lean certificate:** provide a verified
+connection between the concrete numerical data and the formal analytic
+objects, then derive the denominator and residual inequalities without these
+two certificate-specific axioms. This is not marked complete by the historical
+milestones below.
+
+## Historical roadmap
+
+The remainder preserves the May 2026 plan and status reports. Its seven-axiom
+counts, "minimum" trust claims, and "all phases complete" wording are not the
+current publication status. Any `sorry` examples below are drafting templates
+in Markdown, not unfinished proofs in the compiled Lean project.
+
 > **STATUS UPDATE (2026-05-24): All six phases complete.** The trust
 > footprint is at its minimum — 3 Mathlib standard axioms +
 > 7 atomic `cert_arb_*` axioms (one per Arb primitive used in the pipeline).
