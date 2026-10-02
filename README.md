@@ -3,6 +3,31 @@
 Publication repository for the Julia interval-arithmetic computations and Lean
 proofs supporting certified water-wave residual estimates.
 
+## Certification plan
+
+The paper separates **candidate discovery** from **rigorous certification**.
+The neural search and a finite-dimensional Newton polish supply a degree-150
+cosine polynomial; the theorem concerns that frozen polynomial and exact
+interpretations of its stored coefficients and parameters. The verification
+then has two complementary parts:
+
+1. [Julia/Arb interval validation](Julia/README.md) encloses the full
+   nonlinear Babenko residual, controls sampled Hilbert transforms by
+   analytic aliasing bounds, proves a positive capillary denominator, and
+   uses Taylor remainders to extend grid bounds to the whole period.
+2. [Lean 4 formalization](Lean/README.md) proves reusable Hilbert,
+   derivative, aliasing, denominator and grid-to-continuum mathematics.
+   Its publication theorem imports the two final Arb numerical conclusions
+   as explicit assumptions, then checks periodic extension, rational
+   comparisons and the sign convention of the manuscript residual.
+
+The [Supplementary Methods](docs/supplementary_computer_assisted_accuracy_proof.pdf)
+give the detailed argument. The [archived production run](Julia/results/phase4_scalar_n150_20260827_2m_20260829/README.md)
+supplies the input, logs and endpoints. The [source provenance](PROVENANCE.md)
+maps the original WaveCAP layout to this publication repository. The result
+is a certified **uniform residual bound**, not an existence theorem for a
+nearby exact water wave; the latter would require a validated inverse bound.
+
 ## Repository layout
 
 ```text

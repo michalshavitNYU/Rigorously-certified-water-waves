@@ -4,6 +4,40 @@ This directory is the `BabenkoRigorous` package. The package name and module
 imports are unchanged. `src/` contains Fourier algebra, interval Taylor data,
 certified Hilbert calculations, sharding, and residual assembly.
 
+## Interval-certification strategy
+
+The certificate input is a frozen even cosine polynomial in the Julia
+convention $y(u)=a_0/2+\sum_{k=1}^N a_k\cos(ku)$. Its stored binary
+coefficients and parameters become exact dyadic rational inputs to Arb.
+The proof follows this chain:
+
+1. **Finite Fourier algebra.** Construct $y$, $y_u$, and $H[y_u]$
+   and differentiate or multiply their coefficient representations. Products
+   retain their natural Fourier degree rather than being projected back to
+   degree $N$. Arb balls enclose arithmetic roundoff.
+2. **Nonlinear interval records.** Store values, derivatives and global
+   derivative bounds at periodic grid nodes. Leibniz and composition rules
+   propagate records through the capillary square root and reciprocal. A
+   grid lower scan plus off-grid control proves $D>0$ before division.
+3. **Certified nonlocal terms.** The capillary composite
+   $G=(1+H[y_u])/D$ is not band limited. A sampled Hilbert transform
+   receives an analytic aliasing correction based on derivative bounds.
+   The implemented residual also routes $H[yy_u]$ through that path,
+   although $yy_u$ is a finite polynomial. Higher-derivative Fourier-tail
+   bounds support the transformed Taylor records.
+4. **Continuum scan and export.** Assemble the residual record, apply an
+   order-$M$ Taylor bound plus a rigorous remainder in each grid cell,
+   and take the outward-rounded maximum. The denominator and residual
+   endpoints are exported as exact rational Lean constants.
+
+The large run is sharded: pointwise records stream to disk, Hilbert
+transforms are processed by derivative column, and the final residual is
+scanned shard by shard. Arb encloses numerical rounding; the aliasing and
+off-grid corrections are explicit analytic estimates supplied by the code.
+See the [Supplementary Methods](../docs/supplementary_computer_assisted_accuracy_proof.pdf)
+for formulas and the [Lean guide](../Lean/README.md) for the numerical
+trust boundary.
+
 ## Environment and tests
 
 Use Julia **1.12.5**, the version recorded in `Manifest.toml`. From the
