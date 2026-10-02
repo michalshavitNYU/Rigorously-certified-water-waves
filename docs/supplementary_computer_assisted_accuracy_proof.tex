@@ -36,7 +36,7 @@
 
 \title{Supplementary Material:\\Computer-Assisted Accuracy Proof}
 \author{}
-\date{Version of 2026-09-09}
+\date{Version of 2026-10-01}
 
 \newtheorem{theorem}{Supplementary Theorem}
 \newtheorem{proposition}[theorem]{Supplementary Proposition}
@@ -1253,9 +1253,18 @@ verification negligible relative to the analytic Taylor and aliasing
 corrections; it does not force the final certificate radius to be
 \(10^{-38}\).
 
+\newpage
 \subsection{Reproducibility and file map}
 \label{sec:supp-cap-reproducibility}
 
+The paths and production commands in this section preserve the original
+research checkout and Crunchy2 environment. In the paper's publication
+repository, \texttt{BabenkoRigorous/} corresponds to \texttt{Julia/},
+\texttt{WaveCAP/WaveCAP/} corresponds to \texttt{Lean/WaveCAP/}, and
+\texttt{wave-cap/WaveCAP/} corresponds to \texttt{Lean/}. The repository
+README gives build and verification commands for the publication layout.
+
+\begin{samepage}
 The archived run directory
 \begin{center}
 \texttt{BabenkoRigorous/results/phase4\_scalar\_n150\_20260827\_2m\_20260829}
@@ -1266,6 +1275,7 @@ certificate.  The installed half-DC certificate was compared byte-for-byte
 with the generated artifact.  The dedicated Lean theorem and audit modules
 were checked directly with the pinned Lean and Mathlib version
 \texttt{v4.29.0-rc6}.
+\end{samepage}
 
 The principal archived artifacts have the following SHA-256 checksums:
 \begin{verbatim}
@@ -1316,6 +1326,7 @@ Log file & Threads & Wall time & Julia elapsed & Peak RSS \\
 \end{longtable}
 \endgroup
 
+\newpage
 The final \texttt{s3} log reports
 \begin{verbatim}
 bound midpoint = +1.9928311263803702e-14
