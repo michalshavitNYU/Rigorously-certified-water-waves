@@ -37,21 +37,30 @@ for the surface-tension Babenko water-wave equation.
 
 ## 1. Overview
 
-The Lean proof is the **verification kernel** of a larger computer-assisted proof.
-Julia/Arblib plays the role of the *certificate generator*: it computes a
-finite cosine-series approximate solution $y$, evaluates the residual $R$ of the
-Babenko equation at a fine grid, bounds all truncation and floating-point errors
-using interval arithmetic, and emits a machine-readable certificate consisting of
-four numbers $(\varepsilon_0, L, D_{\mathrm{lower}}, M_{\mathrm{grid}})$.
-Lean's job is to verify, from first principles and using only that certificate, that
-$\|R\|_{L^\infty} \leq \varepsilon_0 + L\pi/M_{\mathrm{grid}}$.
-Lean proves nothing about the numerics; it proves the *implication* from the
-certificate hypotheses to the sup-norm bound.
-The analytic core — the structure of $H$, the aliasing bound, Taylor remainder
-theory, and the Lipschitz interpolation argument — is fully formal.
-No `sorry` appears in the final proof except in stubs awaiting Mathlib PRs
-(the precise aliasing constant and one Fourier-series density lemma),
-both of which are mathematically uncontroversial.
+The Lean formalization provides the **mathematical verification layer** of a
+larger computer-assisted proof. Julia/Arblib acts as the *certificate generator*:
+it validates a fixed finite cosine-series profile $y$, evaluates its Babenko
+residual $R$ on a fine grid, and uses interval arithmetic and analytic estimates
+to control rounding, Fourier aliasing and truncation, and between-grid errors.
+It exports exact rational coefficients, equation parameters and certified
+endpoints, together with the grid size and Taylor order. The residual endpoint
+$\varepsilon_0$ already bounds the continuous residual, including the Taylor
+remainder.
+
+For the reported candidate, Lean takes two explicit numerical hypotheses from
+the validated computation: $D(u)\geq D_{\mathrm{lower}}>0$ for every real $u$,
+and $|R(u)|\leq\varepsilon_0$ on $[0,2\pi]$. From these inputs, Lean proves
+$\|R\|_{L^\infty(\mathbb R)}\leq\varepsilon_0$ by periodic extension and checks
+the exact rational comparisons yielding the reported constants. These two
+hypotheses form the numerical trust boundary: the validated computation supplies
+the numerical enclosures, while Lean verifies the mathematical deductions.
+
+Independently of this numerical instance, a reusable Lean library formalizes
+the Fourier definition of $H$, its action on trigonometric modes and commutation
+with differentiation, aliasing estimates, product and composition derivative
+bounds, Taylor-record semantics, and the Taylor grid-to-continuum argument.
+The publication proof contains no `sorry` placeholders or `sorryAx` dependency;
+the earlier descriptions of pending Mathlib stubs are obsolete.
 
 ---
 
