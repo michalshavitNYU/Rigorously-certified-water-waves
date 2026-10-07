@@ -40,7 +40,7 @@ The note was prepared against the original source layout. In its references,
 `source_notes/` preserves the upstream tracked implementation notes, audits,
 and development plans. Their historical bodies retain their original dates,
 paths, and status descriptions. Current-status notices have been added to the
-Lean roadmap and proof design. Older claims of seven numerical axioms or
+Lean roadmap and [proof design](../Lean/lean_design.md). Older claims of seven numerical axioms or
 unfinished `sorry` proofs do not describe the current publication result;
 illustrative `sorry` stubs in Markdown are not compiled Lean proofs. Use the
 current source and the dedicated half-DC audit when interpreting those plans.

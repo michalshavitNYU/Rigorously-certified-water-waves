@@ -5,7 +5,8 @@ as-built Lean design differs — namespace `WaveCAP`, direct
 `≤ ε₀_cert` theorem with exact rational literals, Phase-6 two-axiom
 trust base. For current status see `status_2026-05-24.md` and
 `audit_2026-07-03.md`.)
-**Detailed specs:** `lean_design.md`, `julia_design.md` (in this folder)
+**Detailed specs:** [lean_design.md](../../Lean/lean_design.md),
+[julia_design.md](julia_design.md).
 
 ---
 

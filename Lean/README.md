@@ -3,6 +3,8 @@
 This directory is a complete Lake project. Its source namespace remains
 `WaveCAP`, independently of the publication directory name `Lean`.
 
+See the [Lean proof design](lean_design.md) for the design document and updated overview.
+
 ## Build
 
 Install Lean through Elan, then run from this directory:

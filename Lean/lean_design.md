@@ -8,8 +8,8 @@
 > Lean does not independently verify the Crunchy2 interval computation.
 > Claims below about accepted `sorry` gaps or other axiom counts belong to the
 > original design, and its `sorry` code examples are not compiled proofs.
-> See the [current Lean verification status](../../Lean/README.md#verification-status)
-> and the [updated roadmap notice](lean_roadmap_2026-05-23.md).
+> See the [current Lean verification status](README.md#verification-status)
+> and the [updated roadmap notice](../docs/source_notes/lean_roadmap_2026-05-23.md).
 
 **Project:** Computer-assisted proof (CAP) that $\|R\|_{L^\infty([0,2\pi])} \leq \varepsilon$
 for the surface-tension Babenko water-wave equation.

@@ -231,7 +231,7 @@ but doesn't actually *certify the algorithm*. The trust anchor
 ## 7. Cross-references
 
 - [overview.md](overview.md) §6 — current Lean component description.
-- [lean_design.md](lean_design.md) — per-file design for existing files.
+- [lean_design.md](../../Lean/lean_design.md) — per-file design for existing files.
 - [milestones.md](milestones.md) — M8–M13 cover existing Lean milestones.
   This roadmap defines new milestones M14–M19 for the missing pieces:
   - M14: TaylorSeriesCorrectness (A)
