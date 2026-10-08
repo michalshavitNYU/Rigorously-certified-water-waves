@@ -19,7 +19,7 @@ interval operation.
 
 ### High: the final numerical inequalities are axioms
 
-`CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean` declares:
+`PaperCertificateAxioms.lean` declares:
 
 1. `cert_arb_dmin_bound`, which already asserts positivity and the global
    lower bound for `D`.
@@ -93,8 +93,8 @@ The default project build succeeds, but the new half-DC headline module is not
 imported by the default library root. It was therefore checked directly:
 
 ```text
-lake env lean WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean
-lake env lean WaveCAP/AuditPhase4ScalarN150HalfDC.lean
+lake env lean WaveCAP/PaperTheorems.lean
+lake env lean WaveCAP/PaperAudit.lean
 ```
 
 Both commands succeed. Publication or CI scripts should include these direct

@@ -673,9 +673,9 @@ correctness theorem explicitly assumes its sample-error inequality, and
 the grid-to-continuum theorem explicitly assumes its cellwise bound.
 
 The dedicated certificate uses
-\code{CertificatePhase4ScalarN150Phase420260827HalfDC.lean} for exact
+\code{PaperCertificate.lean} for exact
 candidate constants and endpoints. Its numerical interface is in
-\code{CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean}.
+\code{PaperCertificateAxioms.lean}.
 It assumes the following two statements, rather than proving them by
 replaying the two-million-point computation in Lean:
 \begin{align}
@@ -712,7 +712,7 @@ The periodic extension is \code{cert_residual_le} in the dedicated
 axioms module. The decimal comparisons are proved by
 \code{residual_bounded_by_phase4_n150_half_dc_decimal} and
 \code{D_bounded_below_by_phase4_n150_half_dc_decimal} in
-\code{MainPhase4ScalarN150Phase420260827HalfDC.lean}. The two numerical
+\code{PaperTheorems.lean}. The two numerical
 assumptions remain assumptions of these conclusions; the displayed proof
 does not replace their interval-arithmetic verification.
 

@@ -1,4 +1,4 @@
-import WaveCAP.MainPhase4ScalarN150Phase420260827HalfDC
+import WaveCAP.PaperTheorems
 
 /-!
 # Audit of the phase-4 N=150 half-DC certificate
@@ -10,7 +10,7 @@ reported in the paper and supplementary material.
 
 namespace WaveCAP
 
-open CertificatePhase4ScalarN150Phase420260827HalfDC
+open PaperCertificate
 
 /-- The manuscript's Babenko operator in the normalization `g = 1`, with
 `mu = c^2` and `beta = kappa`. -/

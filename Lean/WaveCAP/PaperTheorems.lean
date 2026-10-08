@@ -1,4 +1,4 @@
-import WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDCAxioms
+import WaveCAP.PaperCertificateAxioms
 import WaveCAP.HalfDCConvention
 
 /-!
@@ -10,7 +10,7 @@ leaves `Main.lean` and the older certificate untouched.
 
 namespace WaveCAP
 
-open CertificatePhase4ScalarN150Phase420260827HalfDC
+open PaperCertificate
 
 /-- Exact headline theorem using the Arb upper endpoint serialized in the
 generated certificate. -/

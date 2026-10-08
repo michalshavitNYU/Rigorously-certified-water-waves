@@ -57,12 +57,12 @@ Use the toolchain specified in `Lean/lean-toolchain`:
 cd Lean
 lake exe cache get
 lake build
-lake build WaveCAP.MainPhase4ScalarN150Phase420260827HalfDC
-lake build WaveCAP.AuditPhase4ScalarN150HalfDC
+lake build WaveCAP.PaperTheorems
+lake build WaveCAP.PaperAudit
 ```
 
 The dedicated publication certificate is
-[`MainPhase4ScalarN150Phase420260827HalfDC.lean`](Lean/WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean).
+[`PaperTheorems.lean`](Lean/WaveCAP/PaperTheorems.lean).
 The older `Main.lean` remains as part of the source snapshot. See
 [the Lean guide](Lean/README.md) for the distinction and the numerical assumptions.
 

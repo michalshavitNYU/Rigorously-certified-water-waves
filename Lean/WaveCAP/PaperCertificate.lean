@@ -29,7 +29,7 @@ import WaveCAP.Definitions
 import Mathlib.Data.Rat.Defs
 import Mathlib.LinearAlgebra.Matrix.Notation
 
-namespace WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC
+namespace WaveCAP.PaperCertificate
 
 /-- Number of cosine modes (= length of input `y_coeffs`). -/
 def N_cert : ℕ := 151
@@ -232,4 +232,4 @@ noncomputable def DLower_cert : ℝ := (DLower_cert_ℚ : ℝ)
 --   axiom cert_D_ge :
 --       ∀ u, DLower_cert ≤ WaveCAP.D a_cert u
 
-end WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC
+end WaveCAP.PaperCertificate

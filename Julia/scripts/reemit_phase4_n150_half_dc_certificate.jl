@@ -12,9 +12,9 @@ using .HalfDCCertificateTools
 const DEFAULT_COEFF_PATH =
     joinpath(@__DIR__, "..", "pinn_a_coeffs_N150_phase4_20260827.txt")
 const CERT_BASENAME =
-    "CertificatePhase4ScalarN150Phase420260827HalfDC.lean"
+    "PaperCertificate.lean"
 const CERT_MODULE =
-    "WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC"
+    "WaveCAP.PaperCertificate"
 const LAMBDA_PHASE4 = 1.1687864806007486
 const BETA_PHASE4 = 0.498
 const M_ORDER = 6

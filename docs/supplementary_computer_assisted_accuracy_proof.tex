@@ -285,7 +285,7 @@ Paper theorem and audit &
 \path{phase4_scalar_n150_20260827_2m_results_20260829.tgz} &
 \texttt{MainPhase4ScalarN150}\allowbreak
 \texttt{Phase420260827HalfDC.lean};
-\path{AuditPhase4ScalarN150HalfDC.lean} \\
+\path{PaperAudit.lean} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -778,7 +778,7 @@ the residual.
 
 The dedicated half-DC theorem for the two-million-point run uses a different
 numerical interface, in the module
-\texttt{CertificatePhase4ScalarN150Phase420260827HalfDCAxioms}:
+\texttt{PaperCertificateAxioms}:
 it assumes the two numerical certificates
 \texttt{cert\_arb\_dmin\_bound} and
 \texttt{cert\_arb\_sup\_bound\_le\_eps0}, then proves periodic extension
@@ -1139,7 +1139,7 @@ vector, so the present formal theorem does not compare two named
 151-component vectors; the generated certificate already contains the
 converted vector.
 
-The audit module \texttt{AuditPhase4ScalarN150HalfDC.lean} separately proves
+The audit module \texttt{PaperAudit.lean} separately proves
 the sign identity in Eq.~\eqref{eq:supp-cap-sign} and the corresponding
 equality of absolute values.  Both the half-DC identities and the residual
 sign bridge are independent of the numerical trust anchors.
@@ -1202,7 +1202,7 @@ The corresponding public modules are
 \begin{center}
  \texttt{MainPhase4ScalarN150}\allowbreak
  \texttt{Phase420260827HalfDC.lean},\\
- \texttt{AuditPhase4ScalarN150HalfDC.lean}.
+ \texttt{PaperAudit.lean}.
 \end{center}
 
 The axiom audit for the exact and decimal residual theorems reports the
@@ -1369,8 +1369,8 @@ After the generated half-DC certificate is installed in
 \begin{verbatim}
 cd wave-cap/WaveCAP
 lake build
-lake env lean WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean
-lake env lean WaveCAP/AuditPhase4ScalarN150HalfDC.lean
+lake env lean WaveCAP/PaperTheorems.lean
+lake env lean WaveCAP/PaperAudit.lean
 \end{verbatim}
 The direct \texttt{lake env lean} calls are included because the dedicated
 half-DC headline and audit modules are not exercised by the default library
@@ -1412,7 +1412,7 @@ to \texttt{WaveCAP/WaveCAP/}.
  Julia: \texttt{src/Certificate.jl}.
  Lean: the generated half-DC certificate, its certificate-specific axiom
  module, the corresponding \texttt{Main} module, and
- \texttt{AuditPhase4ScalarN150HalfDC.lean}.
+ \texttt{PaperAudit.lean}.
 \end{itemize}
 
 These components yield a reproducible continuum residual bound for the

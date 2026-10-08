@@ -1,4 +1,4 @@
-import WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC
+import WaveCAP.PaperCertificate
 import WaveCAP.ResidualAssemblyCorrectness
 
 /-!
@@ -10,7 +10,7 @@ and the two exact Arb endpoints from the two-million-point run. The two axioms
 below are the complete certificate-specific numerical trust boundary.
 -/
 
-namespace WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC
+namespace WaveCAP.PaperCertificate
 
 /-- Arb certified a positive global lower bound for the Babenko denominator. -/
 axiom cert_arb_dmin_bound :
@@ -47,4 +47,4 @@ theorem cert_residual_le :
 #print axioms cert_D_ge
 #print axioms cert_residual_le
 
-end WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC
+end WaveCAP.PaperCertificate

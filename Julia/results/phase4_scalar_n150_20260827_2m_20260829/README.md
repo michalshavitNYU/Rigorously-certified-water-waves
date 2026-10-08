@@ -81,7 +81,7 @@ ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43  wave-cap-half-
 
 ## Publication Lean files
 
-- [Half-DC certificate](../../../Lean/WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean)
-- [Main theorem](../../../Lean/WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean)
-- [Axiom audit](../../../Lean/WaveCAP/AuditPhase4ScalarN150HalfDC.lean)
+- [Half-DC certificate](../../../Lean/WaveCAP/PaperCertificate.lean)
+- [Main theorem](../../../Lean/WaveCAP/PaperTheorems.lean)
+- [Axiom audit](../../../Lean/WaveCAP/PaperAudit.lean)
 - [Lean guide and numerical assumptions](../../../Lean/README.md)

@@ -12,8 +12,8 @@ Install Lean through Elan, then run from this directory:
 ```sh
 lake exe cache get
 lake build
-lake build WaveCAP.MainPhase4ScalarN150Phase420260827HalfDC
-lake build WaveCAP.AuditPhase4ScalarN150HalfDC
+lake build WaveCAP.PaperTheorems
+lake build WaveCAP.PaperAudit
 ```
 
 Elan reads the local `lean-toolchain` file; no global toolchain change is needed.
@@ -35,11 +35,11 @@ instantiate those contracts from serialized intermediate Arb arrays.
 | Sampled transform | [AliasingErrorBound.lean](WaveCAP/AliasingErrorBound.lean), <code>dft_hilbert_aliasing_bound</code> and <code>samplingDFTHilbert_eq_cot_convolution</code> | Controls unresolved modes and identifies the cot-kernel convolution. |
 | Grid-to-continuum | [GridToSupNormTaylor.lean](WaveCAP/GridToSupNormTaylor.lean), <code>grid_to_supNorm_taylor</code> | Turns grid derivative data and a remainder into a continuum bound. |
 | Generic denominator and residual contracts | [DminBoundCorrectness.lean](WaveCAP/DminBoundCorrectness.lean), <code>dmin_bound_correct</code>; [ResidualAssemblyCorrectness.lean](WaveCAP/ResidualAssemblyCorrectness.lean), <code>cert_residual_le_derived</code> | States correctness conditions for the assembled interval chain. |
-| Numerical anchors and periodicity | [CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean](WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean), <code>cert_D_ge</code> and <code>cert_residual_le</code> | Imports two final Arb conclusions and extends the one-period residual bound. |
-| Paper-facing bounds | [MainPhase4ScalarN150Phase420260827HalfDC.lean](WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean), <code>residual_bounded_by_phase4_n150_half_dc_decimal</code> and <code>D_bounded_below_by_phase4_n150_half_dc_decimal</code> | Checks exact rational comparisons with the displayed constants. |
-| Residual sign bridge | [AuditPhase4ScalarN150HalfDC.lean](WaveCAP/AuditPhase4ScalarN150HalfDC.lean), <code>paperBabenkoGOne_bounded_by_phase4_n150_half_dc_decimal</code> | Transfers the absolute bound to the manuscript's operator. |
+| Numerical anchors and periodicity | [PaperCertificateAxioms.lean](WaveCAP/PaperCertificateAxioms.lean), <code>cert_D_ge</code> and <code>cert_residual_le</code> | Imports two final Arb conclusions and extends the one-period residual bound. |
+| Paper-facing bounds | [PaperTheorems.lean](WaveCAP/PaperTheorems.lean), <code>residual_bounded_by_phase4_n150_half_dc_decimal</code> and <code>D_bounded_below_by_phase4_n150_half_dc_decimal</code> | Checks exact rational comparisons with the displayed constants. |
+| Residual sign bridge | [PaperAudit.lean](WaveCAP/PaperAudit.lean), <code>paperBabenkoGOne_bounded_by_phase4_n150_half_dc_decimal</code> | Transfers the absolute bound to the manuscript's operator. |
 
-The exact [certificate data module](WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean)
+The exact [certificate data module](WaveCAP/PaperCertificate.lean)
 contains the coefficient vector, parameters and Arb endpoints as rational
 constants. [HalfDCConvention.lean](WaveCAP/HalfDCConvention.lean) reconciles
 Julia's $a_0/2$ with Lean's direct zeroth coefficient; the audit checks
@@ -49,7 +49,7 @@ the certificate-specific coefficient and residual sign bridge.
 
 **Checked 2026-09-09: sorry-free proofs, two explicit numerical axioms, and no
 end-to-end Lean verification of the Crunchy2 computation.** The audit target
-`WaveCAP.AuditPhase4ScalarN150HalfDC` built successfully in the source checkout,
+`WaveCAP.PaperAudit` built successfully in the source checkout,
 whose Lean sources and pinned build configuration were verified byte-for-byte
 identical to this publication copy. The project proof sources contain no
 `sorry` or `admit` placeholders. The audit's `#print axioms` output for
@@ -59,14 +59,14 @@ identical to this publication copy. The project proof sources contain no
 propext
 Classical.choice
 Quot.sound
-WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC.cert_arb_dmin_bound
-WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC.cert_arb_sup_bound_le_eps0
+WaveCAP.PaperCertificate.cert_arb_dmin_bound
+WaveCAP.PaperCertificate.cert_arb_sup_bound_le_eps0
 ```
 
 The first three are Lean's standard logical axioms; there is no `sorryAx`
 dependency. The remaining two are explicit, unproved-in-Lean numerical
 assumptions declared in
-[`CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean`](WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean):
+[`PaperCertificateAxioms.lean`](WaveCAP/PaperCertificateAxioms.lean):
 
 - `cert_arb_dmin_bound` asserts that `DLower_cert` is positive and is a lower
   bound for `D` at every real argument.
@@ -88,13 +88,13 @@ milestone descriptions in the [Lean roadmap](../docs/source_notes/lean_roadmap_2
 
 ## Publication entry points
 
-- `WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDC.lean` contains the
+- `WaveCAP/PaperCertificate.lean` contains the
   exact candidate coefficients, parameters, and numerical certificate endpoints.
-- `WaveCAP/CertificatePhase4ScalarN150Phase420260827HalfDCAxioms.lean` declares
+- `WaveCAP/PaperCertificateAxioms.lean` declares
   the two numerical assumptions and proves periodic extension.
-- `WaveCAP/MainPhase4ScalarN150Phase420260827HalfDC.lean` states the global
+- `WaveCAP/PaperTheorems.lean` states the global
   residual and denominator results, including the decimal inequalities.
-- `WaveCAP/AuditPhase4ScalarN150HalfDC.lean` checks the certificate declarations,
+- `WaveCAP/PaperAudit.lean` checks the certificate declarations,
   the manuscript residual sign convention, and their axiom dependencies.
 - `WaveCAP/HalfDCConvention.lean` reconciles Julia's `a0/2` convention with
   Lean's full constant coefficient.

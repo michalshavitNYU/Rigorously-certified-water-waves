@@ -28,7 +28,7 @@ The command reads the existing `staged_bound.arbdump` and
 the new file
 
 ```text
-CertificatePhase4ScalarN150Phase420260827HalfDC.lean
+PaperCertificate.lean
 ```
 
 inside the work directory. It refuses to replace that path if it already
@@ -36,7 +36,7 @@ exists. The original coefficient file, original certificate, and Arb dumps
 remain unchanged.
 
 The new module is named
-`WaveCAP.CertificatePhase4ScalarN150Phase420260827HalfDC`. Its coefficient
+`WaveCAP.PaperCertificate`. Its coefficient
 vector has zeroth entry `-0.10288865038589269`, exactly one half of the source
 value `-0.20577730077178538`; entries 1 through 150 are unchanged.
 
