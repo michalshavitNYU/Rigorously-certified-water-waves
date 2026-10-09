@@ -10,6 +10,18 @@
 \usepackage{microtype}
 \usepackage{booktabs}
 \usepackage[hidelinks]{hyperref}
+\usepackage{eso-pic,tikz}
+% Draft watermark on every page; transparency preserves text legibility.
+\AddToShipoutPictureFG{%
+  \AtPageCenter{%
+    \makebox(0,0){%
+      \begin{tikzpicture}
+        \node[rotate=45,text=red,text opacity=0.18,inner sep=0pt]
+          {\sffamily\bfseries\fontsize{92}{92}\selectfont DRAFT};
+      \end{tikzpicture}%
+    }%
+  }%
+}
 \setlength{\emergencystretch}{2em}
 \numberwithin{equation}{section}
 \newtheorem{proposition}{Proposition}[section]
@@ -47,8 +59,8 @@ The object of the proof is the explicit cosine polynomial
 \end{equation}
 The stored binary floating-point coefficients are interpreted as exact
 dyadic numbers. Thus the verification concerns this fixed finite function.
-The neural-network search and subsequent polishing produce the candidate;
-they are not part of the mathematical object being certified.
+The neural-network search and subsequent polishing produce the finite
+polynomial that is then certified.
 
 We use the $2\pi$-periodic Hilbert-transform convention
 \begin{equation}
@@ -63,8 +75,8 @@ Introduce
  D=\sqrt{A^2+B^2},\qquad Q=\frac{A}{D},\qquad G=\frac{B}{D}.
  \label{eq:auxiliaries}
 \end{equation}
-The quotients are used only after a positive lower bound for $D$ has been
-established. With the sign convention of the manuscript, the residual is
+We establish a positive lower bound for $D$ before constructing the
+quotients. With the sign convention of the manuscript, the residual is
 \begin{equation}
  \begin{split}
  R(y)=-\mathcal B(y)
@@ -74,9 +86,9 @@ established. With the sign convention of the manuscript, the residual is
  \end{split}
  \label{eq:residual}
 \end{equation}
-A prime denotes differentiation with respect to $u$. In particular,
-$P=yH[y_u]$ and $T=H[yy_u]$ are distinct terms. The factor inside the
-second transform is the same candidate $y$.
+A prime denotes differentiation with respect to $u$. The term $P$
+multiplies $y$ by $H[y_u]$, while $T$ applies the Hilbert transform to
+the product $yy_u$.
 
 For the fixed stored parameters $\mu$ and $\beta$, the purpose of the
 calculation is to prove
@@ -96,8 +108,7 @@ the linearized operator and a suitable existence argument.
 
 \subsection{How the finite calculation yields a continuum bound}
 
-The proof constructs rigorous information about derivatives, not just
-ordinary floating-point residual samples. Its stages are as follows.
+The proof proceeds as follows.
 \begin{enumerate}
  \item Use the finite Fourier representation to evaluate $y$, $y_u$,
  $\HH$, and their derivatives, with outward rounding.
@@ -107,19 +118,18 @@ ordinary floating-point residual samples. Its stages are as follows.
  Before forming the capillary quotients, prove $D\geq d>0$ on the entire
  domain.
  \item Combine the signed derivative intervals according to
- \eqref{eq:residual}. Only then take absolute values and apply a Taylor
+ \eqref{eq:residual}. Then take absolute values and apply a Taylor
  remainder estimate on every grid cell.
 \end{enumerate}
 The signed assembly in the last stage preserves the cancellation between
-residual terms. Adding four separate nonnegative supremum bounds would
-lose the cancellation on which the small residual depends.
+residual terms needed to obtain the small residual bound.
 
 Julia/Arb carries out the outward-rounded numerical calculation. Lean
 formalizes the mathematical definitions and reusable analytic estimates.
 For the archived certificate, the final numerical denominator and residual
-bounds enter Lean through two explicit assumptions; the millions of
-intermediate interval operations are not replayed in Lean. The precise
-boundary is stated in Appendix~\ref{sec:trust}.
+bounds enter Lean through two explicit assumptions recording the external
+Julia/Arb calculation. The precise boundary is stated in
+Appendix~\ref{sec:trust}.
 
 \subsection{Common notation for interval Taylor data}
 \label{sec:records}
@@ -132,7 +142,9 @@ Use the uniform grid and full cell width
 \end{equation}
 The cells $[u_j,u_j+h]$ cover one period. We denote the final Taylor
 order by an integer $M\geq0$.
-An order-$q$ record for a function $F$ consists of
+An order-$q$ record for a function $F$ consists of closed intervals
+$I_{j,m}(F)$ enclosing the derivative values at the grid nodes, together
+with nonnegative scalar bounds $C_m(F)$ satisfying
 \begin{equation}
  \begin{aligned}
  F^{(m)}(u_j)&\in I_{j,m}(F),&&0\leq m\leq q,\\
@@ -141,8 +153,8 @@ An order-$q$ record for a function $F$ consists of
  \label{eq:record}
 \end{equation}
 All norms are over a complete period, equivalently over $\mathbb R$ for
-periodic functions. The local entries are raw derivatives: division by
-$m!$ occurs only in the Taylor expansion. We also write
+periodic functions. The intervals $I_{j,m}(F)$ enclose raw derivatives;
+the factor $1/m!$ is introduced in the Taylor expansion. We also write
 \begin{equation}
  U_{j,m}(F)=\sup\{|x|:x\in I_{j,m}(F)\}.
  \label{eq:U}
@@ -155,7 +167,6 @@ outward rounding. The working precision is specified with the run
 parameters in Section~\ref{sec:numerics}. A symbol
 $C_m(F)$ always denotes a nonnegative scalar upper bound; if its defining
 expression is computed as a ball, the outward upper endpoint is used.
-The ball for a bound expression need not enclose the exact supremum norm.
 
 Pointwise interval arithmetic accounts for rounding error. Additional
 analytic estimates account for variation between nodes, unresolved Fourier
@@ -180,9 +191,9 @@ the Hilbert transform is the finite expression
  \label{eq:path-a}
 \end{equation}
 Differentiation and multiplication also have finite coefficient formulas.
-Here ``finite'' means that no Fourier tail is discarded; numerical
-rounding in coefficient arithmetic and evaluation is still enclosed by
-Arb. Products retain the degree they generate.
+The finite representation retains every generated Fourier mode. Arb
+encloses rounding in coefficient arithmetic and evaluation, and products
+retain the degree they generate.
 
 Applied to the candidate, Path A gives
 \begin{equation}
@@ -211,7 +222,7 @@ for the candidate are
 \end{align}
 Thus $C_0(B)=1+C_0(\HH)$ and $C_m(B)=C_m(\HH)$ for $m\geq1$
 are valid bounds. Evaluating the differentiated finite series at the nodes
-supplies $I_{j,m}$ without numerical differencing.
+supplies $I_{j,m}$ directly.
 
 \subsection{Path B: interval data and a certified sampled transform}
 \label{sec:path-b}
@@ -348,9 +359,8 @@ data; only the last requires a further sampled Hilbert transform.
 \subsection{Constructing the local product record}
 
 Set $P=y\HH$. Both factors are explicit finite cosine polynomials, and
-$P$ has degree at most $2N$. Path A gives $\HH$ before multiplication
-by $y$; no sampled Hilbert transform or aliasing correction is needed for
-this term. No projection of the product back to degree $N$ is performed.
+$P$ has degree at most $2N$. Path A evaluates $\HH$ by the finite coefficient formula before
+multiplication by $y$. The product retains its full degree.
 
 For $m\geq1$, the local derivatives of $y$ are enclosed by evaluating
 \begin{equation}
@@ -375,8 +385,8 @@ For example,
  P''&=y''\HH+2y'\HH'+y\HH''.
 \end{align}
 The exact Leibniz identity proves that each interval contains the required
-derivative. Interval dependencies can enlarge an enclosure, but they do
-not invalidate it.
+derivative. Interval arithmetic preserves this inclusion as dependencies
+between inputs contribute to the enclosure width.
 
 \subsection{The remainder derivative and the whole-cell enclosure}
 
@@ -386,10 +396,9 @@ give the global remainder constant
  \boxed{C_{M+1}(P)=\sum_{r=0}^{M+1}\binom{M+1}{r} C_r(y)C_{M+1-r}(\HH).}
  \label{eq:P-remainder-bound}
 \end{equation}
-It controls $P^{(M+1)}$ at every point, including between nodes. A maximum
-of sampled derivatives of order $M+1$ alone would not supply this statement.
-There is no need for a local derivative column of order $M+1$ in the
-final order-$M$ product record.
+It controls $P^{(M+1)}$ at every point, including between nodes. The final
+order-$M$ product record combines local derivatives through order $M$ with
+this global bound on the derivative of order $M+1$.
 
 For $u=u_j+t$ with $0\leq t\leq h$, Taylor's formula gives
 \begin{equation}
@@ -410,16 +419,15 @@ In particular,
  +C_{M+1}(P)\frac{h^{M+1}}{(M+1)!}\right\}.
  \label{eq:P-bound}
 \end{equation}
-This illustrates the grid-to-continuum argument. In residual assembly,
-however, we retain $I_{j,m}(P)$ and insert it with its minus sign; we do
-not substitute the separate norm bound \eqref{eq:P-bound}.
+This illustrates the grid-to-continuum argument. Residual assembly uses
+the signed intervals $I_{j,m}(P)$ with the minus sign in
+\eqref{eq:residual}.
 
-The product's downward tightening pass can improve $C_0(P),\ldots,C_M(P)$,
-but it changes neither $I_{j,m}(P)$ nor $C_{M+1}(P)$. Since $P$ enters the
-residual additively, those tightened lower-order bounds do not sharpen its
-contribution to the final residual scan. This differs from tightening
-inside a chain of nonlinear operations, where improved bounds are consumed
-by subsequent estimates.
+The product's downward tightening pass can improve $C_0(P),\ldots,C_M(P)$.
+Its signed local intervals and global remainder bound $C_{M+1}(P)$ remain
+unchanged, so its additive contribution to the final residual scan is
+preserved. Within a chain of nonlinear operations, tightened lower-order
+bounds can improve subsequent estimates.
 
 \section{Second term: the sampled estimate of \texorpdfstring{$H[yy_u]$}{H[yyu]}}
 \label{sec:gravity-hilbert}
@@ -464,20 +472,20 @@ For the final Taylor remainder, \eqref{eq:H-global-derivatives} yields
  \boxed{C_{M+1}(T)=\frac{\pi^2}{3}C_{M+3}(F).}
  \label{eq:T-remainder-bound}
 \end{equation}
-Thus the required input is not limited to the derivatives through order $M$ used in the
-local Taylor polynomial. For this global estimate, $F$ must have a valid
-bound on its derivative of order $M+3$. The aliasing correction for column $m$ additionally
-uses $C_{m+p}(F)$ for the chosen decay order $p$.
+The local Taylor polynomial uses derivatives through order $M$, and the
+global remainder estimate requires a bound on the derivative of $F$ of
+order $M+3$. The aliasing correction for column $m$ uses $C_{m+p}(F)$
+for the chosen decay order $p$.
 
 \paragraph{Why use Path B for a finite polynomial?}
-The product $yy_u$ is itself a trigonometric polynomial of degree at most
-$2N$. It could therefore be transformed directly by Path A. Moreover, when
-$\Ngrid>4N$, its exact sampled transform has no frequency aliasing. The
-archived implementation nevertheless routes this term through the generic
-Path-B routine and its conservative correction. This is a choice of
-computational organization; an infinite Fourier tail is not intrinsic to
-this term. The final capillary transform has a different character,
-because its input is generally not a finite polynomial.
+The product $yy_u$ is a trigonometric polynomial of degree at most $2N$
+and admits a direct Path-A transform. When $\Ngrid>4N$, its exact
+sampled transform agrees with the continuous transform at every node.
+The archived implementation uses the generic Path-B routine and its
+conservative correction for this term, providing a common computational
+procedure for both $H[yy_u]$ and the final capillary transform. For the
+capillary transform, the correction controls the infinite Fourier tail
+of its nonlinear input.
 
 \section{Third term: local capillarity and positivity of \texorpdfstring{$D$}{D}}
 \label{sec:local-capillary}
@@ -488,19 +496,18 @@ The local capillary term is
  Q=\frac{A}{D},\qquad D=\sqrt{A^2+B^2}.
  \label{eq:L}
 \end{equation}
-Its difficulty is the nonlinear denominator. It uses the interval Taylor
-machinery associated with Path B, but requires no sampled Hilbert transform
-of its own. The construction starts by proving that division by $D$ is
+Its difficulty is the nonlinear denominator. The term is constructed
+using nonlinear interval Taylor arithmetic and the Path-A expression for
+$H[y_u]$. The construction starts by proving that division by $D$ is
 valid everywhere.
 
-\subsection{A positive lower bound without differentiating the denominator}
+\subsection{A Lipschitz lower bound for the denominator}
 \label{sec:D-positive}
 
 At each node, evaluate $A$, $B$, and $\sqrt{A^2+B^2}$ using outward
 rounding, and let $\underline D_j$ be a lower endpoint for $D(u_j)$.
-At this stage the square root is used only to evaluate the nonnegative
-Euclidean norm; no reciprocal or derivative of $D$ is taken. The interval
-squares can be restricted to their known nonnegative range.
+At this stage the square root evaluates the Euclidean norm of $(A,B)$.
+The interval squares are restricted to their known nonnegative range.
 
 \begin{proposition}
 Let $L_A\geq\norm{A'}$ and $L_B\geq\norm{B'}$. Then
@@ -528,8 +535,8 @@ and using periodicity proves \eqref{eq:D-Lip}.
 \end{proof}
 
 The constants $L_A=C_1(A)$ and $L_B=C_1(B)$ are available from Path A.
-The argument does not assume the positivity it establishes. The numerical
-procedure must stop before reciprocal evaluation unless this initial
+The argument establishes positivity using bounds on $A$, $B$, and their
+first derivatives. Reciprocal evaluation proceeds once the computed
 lower bound is strictly positive.
 
 After positivity is established, $D$ is smooth. First construct its
@@ -546,8 +553,8 @@ bound
 All subtractions in this expression are rounded in the lower-bound
 direction. Taking $d=\max\{d_{\mathrm{Lip}},d_{\mathrm{Tay}}\}$ retains a
 valid positive lower bound. Subsequent derivative and quotient bounds may
-then be recomputed using this improved $d$. The second estimate is a refinement, not a prerequisite for the first
-positivity proof.
+then be recomputed using this improved $d$. The Taylor estimate thus
+refines the initial Lipschitz lower bound.
 
 \subsection{Derivative bounds for the denominator}
 \label{sec:D-derivatives}
@@ -661,8 +668,8 @@ $A,Q$ replaced by $B,G$. The corresponding global bounds are
 \end{align}
 The source calculation compares algebraic $D/G$ derivative bounds with
 composition-based bounds and retains the tighter valid upper endpoints
-where needed. These estimates operate directly on the smooth functions;
-they do not replace $D$ or $G$ by a truncated Fourier series.
+where needed. These estimates apply directly to the smooth functions
+$D$ and $G$.
 
 Differentiation supplies the input to Path B:
 \begin{equation}
@@ -682,9 +689,8 @@ $0\leq m\leq M$, the output record is
  \label{eq:K-local}
 \end{equation}
 Here $\mathcal H_{j,m}(G')$ uses the samples of $G^{(m+1)}$. Since $G$
-generally has infinitely many Fourier modes, the correction controls a
-real truncation/aliasing issue rather than only providing a generic bound
-for a finite polynomial.
+generally has infinitely many Fourier modes, the correction bounds the
+contribution of its unresolved modes to the transform error.
 
 For the final remainder we use
 \begin{equation}
@@ -697,8 +703,8 @@ residual record requires local derivatives of $G$ through order $M+1$,
 a global derivative bound of order $M+4$ for \eqref{eq:K-remainder-bound}, and any further
 bounds required by the selected aliasing decay orders. For example,
 $p=2$ would use $C_{m+3}(G)$ for the local corrections, through order
-$M+3$. This example describes the estimate's requirements; it does not fix
-the decay order of the archived run.
+$M+3$. This example illustrates how the derivative requirements depend
+on the chosen decay order $p$.
 
 The contribution to the residual is $-\beta I_{j,m}(K)$. Its global
 contribution to the derivative bound of order $M+1$ is $|\beta|C_{M+1}(K)$.
@@ -747,7 +753,7 @@ All parameters in this expression are the exact stored values, enclosed
 as needed by interval arithmetic. Linearity and the previously proved
 inclusions give $R^{(m)}(u_j)\in I_{j,m}(R)$.
 
-Only after \eqref{eq:R-local} is formed do we take
+After forming \eqref{eq:R-local}, we take
 $U_{j,m}(R)=\sup\{|x|:x\in I_{j,m}(R)\}$. Individual terms may be much
 larger than the final residual; their signed combination is essential.
 Separately, a global remainder constant is obtained by the triangle
@@ -759,8 +765,8 @@ inequality:
  \end{split}
  \label{eq:R-remainder-bound}
 \end{equation}
-This remainder bound need not preserve cancellation, because it is
-multiplied by the small factor $h^{M+1}/(M+1)!$ in the final estimate.
+The triangle inequality supplies a global remainder bound, which is
+multiplied by $h^{M+1}/(M+1)!$ in the final estimate.
 
 \subsection{From the finite grid to every real argument}
 
@@ -785,10 +791,10 @@ the positive lower bound from Section~\ref{sec:D-positive}, this completes
 the mathematical implication from validated interval records and global
 bounds to the two continuum inequalities.
 
-The cell width in \eqref{eq:R-global} is $h=2\pi/\Ngrid$, not $h/2$.
-For fixed $C_{M+1}(R)$, the remainder factor scales as $\Ngrid^{-(M+1)}$. This
-statement concerns the remainder, not the full numerical bound, whose
-other contributions include local interval widths and aliasing allowances.
+The cell width in \eqref{eq:R-global} is $h=2\pi/\Ngrid$. For fixed
+$C_{M+1}(R)$, the remainder factor scales as $\Ngrid^{-(M+1)}$. The
+full numerical bound also includes local interval widths and aliasing
+allowances.
 
 \section{Numerical choices and the reported certificate}
 \label{sec:numerics}
@@ -827,25 +833,22 @@ with decimal displays
  \sup B_R&\approx1.7792768524432498\times10^{-13}.
  \label{eq:reported-ball}
 \end{align}
-This is a ball returned by the bound computation, not an enclosure of the
-range of the signed function $R$. The rigorous conclusion uses its exact
-outward upper endpoint, recorded in Appendix~\ref{sec:certificate}; the
-midpoint and radius are not separate estimates for distinct error sources.
-In particular, the negative lower endpoint has no bearing on the upper
-bound for $\norm{R}$.
+The ball $B_R$ is the output of the supremum-bound computation. Its exact
+outward upper endpoint supplies the bound for $\norm{R}$ and is recorded
+in Appendix~\ref{sec:certificate}. The midpoint and radius describe this
+bound-expression ball.
 
 The denominator endpoint is approximately
 $0.34465883518530396$. Exact rational comparisons give the outward-safe
-bounds in \eqref{eq:result}. No individual numerical supremum bound for
-$P$, $T$, $L$, or $K$ is inferred from the final residual certificate.
+bounds in \eqref{eq:result}. The residual certificate quantifies the
+assembled expression containing $P$, $T$, $L$, and $K$.
 
-The certified total residual is $1.78\times10^{-13}$. Any use of the
-phrase ``near machine precision'' should be read with this explicit number:
-IEEE double precision has machine epsilon $2^{-52}\approx2.22\times10^{-16}$,
-whereas the verifier uses $128$-bit ball arithmetic. These are different
-quantities. The verification precision controls arithmetic enclosures;
-it does not by itself determine the residual of the fixed candidate or
-remove the Taylor and aliasing allowances.
+The phrase ``near machine precision'' refers here to the certified total
+residual bound $1.78\times10^{-13}$. For reference, IEEE double precision
+has machine epsilon $2^{-52}\approx2.22\times10^{-16}$, and the verifier
+uses $128$-bit ball arithmetic. The verification precision controls
+arithmetic enclosures. The final bound depends on the fixed candidate
+and the arithmetic, Taylor, and aliasing allowances.
 
 \appendix
 \section{Implementation and reproducibility}
@@ -893,9 +896,9 @@ The quotient recurrences displayed in the main text give explicit
 mathematical enclosure formulas. The source account describes local
 square-root and reciprocal propagation by Fa\`a di Bruno composition
 formulas and supplementary algebraic bounds for high derivatives of
-$D$ and $G$. Equivalent valid constructions need not produce identical
-interval widths. The archived numerical endpoints refer to the
-implemented construction, including its tightening and sharding choices.
+$D$ and $G$. Interval widths depend on the chosen valid construction.
+The archived numerical endpoints refer to the implemented construction,
+including its tightening and sharding choices.
 
 \subsection{Sharding the two-million-point grid}
 
@@ -903,45 +906,25 @@ The sharded schedule computes coefficient bounds once, streams local
 nonlinear operations over contiguous blocks, and processes each global
 Hilbert transform one derivative column at a time. The final residual is
 then reassembled shard by shard. Grid maxima used in tightening are merged
-over the complete grid; a maximum from a single shard does not bound the
-function on a full period.
+over the complete grid to obtain bounds valid throughout a full period.
 
-Intermediate Arb balls are saved using exact dump/load representations
-of their mantissas, exponents, and radii. Decimal text is not used for this
-round trip. The source account reports that the reduction order matches
+Intermediate Arb balls are saved and restored through exact
+representations of their mantissas, exponents, and radii. The source
+account reports that the reduction order matches
 the monolithic calculation and that smaller-grid tests compare the two
 routes. The archived run used eight workers with four Julia threads each
 for its initial stage and eight threads for the main transform and final
 stages. Separate processes between major stages released memory and left
 exact state dumps for subsequent stages.
 
-\subsection{Archived artifacts}
-
-The source account identifies the run directory as
-\begin{center}
-\small\code{BabenkoRigorous/results/}\allowbreak
-\code{phase4\_scalar\_n150\_20260827\_2m\_20260829}.
-\end{center}
-It contains the run description, logs, coefficient data, Arb endpoint
-dumps, scripts, and generated Lean certificate. The account reports a
-successful final stage, byte-for-byte agreement between the generated
-and installed half-DC certificate, and checks of the certificate-specific
-Lean modules with the pinned Lean/Mathlib version \code{v4.29.0-rc6}.
-The reported SHA-256 identifiers are preserved here for locating the
-corresponding artifacts.
-
-\noindent Run archive:
-\begin{quote}\footnotesize\ttfamily
-4d65357a64a0ccfbf0ed67f8dd0e1970f0ceb549a8cbf647d8490e4ac48abb07
-\end{quote}
-\noindent Half-DC alignment archive:
-\begin{quote}\footnotesize\ttfamily
-ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43
-\end{quote}
-\noindent Installed generated half-DC Lean certificate:
-\begin{quote}\footnotesize\ttfamily
-2190a52f3520ab0b15683eab592ee1105797d737a22f2e24a869130f5a431ed2
-\end{quote}
+\paragraph{Reproducibility.}
+The input coefficients, archived run evidence, and certificate files are
+available in the
+\href{https://github.com/michalshavitNYU/Rigorously-certified-water-waves/tree/b5a40c9fe528cdfa9a302bd7ae377095f3566706}{paper repository (revision \code{b5a40c9})}.
+The
+\href{https://github.com/michalshavitNYU/Rigorously-certified-water-waves/blob/b5a40c9fe528cdfa9a302bd7ae377095f3566706/Julia/results/phase4_scalar_n150_20260827_2m_20260829/README.md}{archived-run documentation}
+provides artifact locations and archive checksums; the repository's Julia
+and Lean guides give reproduction and build instructions.
 
 \section{Exact data and the Lean certificate boundary}
 \label{sec:certificate}
@@ -974,8 +957,8 @@ These exact values satisfy
  \label{eq:rational-comparisons}
 \end{equation}
 The shortened decimals in \eqref{eq:parameters} and
-\eqref{eq:reported-ball} are displays, not replacements for these exact
-rational definitions.
+\eqref{eq:reported-ball} display approximations to these exact rational
+definitions.
 
 \subsection{Aligning the constant mode and the residual sign}
 
@@ -987,10 +970,9 @@ therefore
  \label{eq:half-DC}
 \end{equation}
 The formal convention adapter makes the two profile definitions agree and
-preserves the derivatives and auxiliary functions. The source account
-reports a certificate-specific check of the zeroth-entry identity; a
-second complete copy of the unconverted coefficient vector is not encoded
-in the theorem. The generated vector is already in the Lean convention.
+preserves the derivatives and auxiliary functions. The encoded coefficient
+data consist of the converted vector in the Lean convention. The source
+account reports a certificate-specific check of its zeroth-entry identity.
 
 The sign bridge is $R=-\mathcal B$ as in \eqref{eq:residual}, hence
 $|R|=|\mathcal B|$. The convention and sign identities are independent of
@@ -1021,17 +1003,19 @@ Its reusable library follows the same proof architecture:
  \code{ResidualAssemblyCorrectness.lean} justify tightening,
  residual assembly, the continuum estimate, and periodic extension.
 \end{itemize}
-These are generic mathematical theorems and data-structure contracts.
-Their existence does not imply that the particular large numerical run
-has been reconstructed inside Lean.
+These generic mathematical theorems establish the analytic results and
+data-structure contracts used by the verification scheme. Their connection
+to the reported numerical certificate is expressed by the two assumptions
+below.
 
 \subsection{The two numerical assumptions}
 \label{sec:trust}
 
-The current certificate does not serialize all local derivative matrices,
-global bound vectors, and intermediate convolution enclosures. Instead,
-the certificate-specific interface imports the final Arb conclusions as
-two explicit numerical assumptions. In mathematical form, they are
+The full calculation of the local derivative matrices, global bound
+vectors, and intermediate convolution enclosures is carried out in
+Julia/Arb. The Lean proof starts from the final Arb conclusions, imported
+through the certificate-specific interface as two explicit numerical
+assumptions. In mathematical form, they are
 \begin{align}
  \mathsf A_D:\quad& D_{\mathrm{lower,cert}}>0
  \quad\text{and}\quad
@@ -1065,8 +1049,9 @@ and its implementation of the analytic estimates.
 The source account reports that the residual theorem's axiom audit lists
 these two numerical anchors together with the standard Mathlib principles
 \code{propext}, \code{Classical.choice}, and \code{Quot.sound}. The
-denominator theorem uses only the denominator anchor. The convention and
-sign-alignment results use no certificate-specific numerical axioms.
+denominator theorem uses the denominator anchor. The convention and
+sign-alignment results are proved independently of the certificate-specific
+numerical assumptions.
 
 For locating the certificate-specific files, the generated data and axiom
 modules share the prefix
