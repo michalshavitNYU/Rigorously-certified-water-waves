@@ -1,1424 +1,1095 @@
-% Supplementary material for the computer-assisted accuracy proof.
-%
-% This is a new additive file.  It consolidates the implemented Julia/Arb
-% pipeline, the Path-A/Path-B Hilbert-transform architecture, and the audited
-% Lean interface for the phase-4 N=150 half-DC certificate.  The 2026-09-09
-% revision adds paper-style theorem packaging, implementation-entry tables,
-% and Crunchy2 run metadata inspired by the level of detail in
-% Buckmaster--Cao-Labora--Gomez-Serrano's computer-assisted appendix.
-% It does not replace the earlier interval-arithmetic or Lean supplementary
-% drafts.
-%
-% Principal repository sources:
-%   docs/overview.md
-%   docs/julia_design.md (architecture only; implementation details are stale)
-%   docs/lean_design.md
-%   docs/lean_roadmap_2026-05-23.md
-%   docs/sharding_plan_2026-07-03.md
-%   docs/half_dc_alignment.md
-%   docs/pinn_parameter_convention.md
-%   docs/lean_certificate_audit_20260831.md
-%   BabenkoRigorous/src/*.jl
-%   WaveCAP/WaveCAP/*.lean
-
+% Rewritten from the user-supplied supp2.tex and yHy_u_2.tex.
+% Numerical results, implementation descriptions, and Lean audit status are
+% inherited from those sources; no numerical run or code audit is claimed here.
+% This standalone file has no external input or bibliography dependencies.
 \documentclass[11pt]{article}
-
 \usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb}
-\usepackage{amsthm}
-\usepackage{booktabs}
-\usepackage{longtable}
-\usepackage{array}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,amsthm}
 \usepackage[margin=1in]{geometry}
 \usepackage{microtype}
+\usepackage{booktabs}
 \usepackage[hidelinks]{hyperref}
-\urlstyle{same}
-
-\title{Supplementary Material:\\Computer-Assisted Accuracy Proof}
+\setlength{\emergencystretch}{2em}
+\numberwithin{equation}{section}
+\newtheorem{proposition}{Proposition}[section]
+\newcommand{\norm}[1]{\left\|#1\right\|_{\infty}}
+\newcommand{\HH}{H_y}
+\newcommand{\Ngrid}{N_{\mathrm{grid}}}
+\newcommand{\epsa}{\varepsilon_{\mathrm{alias}}}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Supplementary Material:\\Certified Residual Bounds for a Finite\\Gravity--Capillary Wave Profile}
 \author{}
-\date{Version of 2026-10-01}
-
-\newtheorem{theorem}{Supplementary Theorem}
-\newtheorem{proposition}[theorem]{Supplementary Proposition}
-\newtheorem{lemma}[theorem]{Supplementary Lemma}
-
-\providecommand{\CandidateDegree}{150}
-\providecommand{\CandidateCount}{151}
-\providecommand{\VerificationGrid}{2{,}000{,}000}
-\providecommand{\TaylorOrder}{6}
-\providecommand{\WorkingPrecision}{128}
-\providecommand{\WaveSpeed}{1.1687864806007486}
-\providecommand{\BabenkoMu}{1.3660618372350841}
-\providecommand{\PinnBeta}{0.498}
-\providecommand{\BabenkoBeta}{0.248004}
-\providecommand{\ResidualMidpoint}{1.9928311263803702\times10^{-14}}
-\providecommand{\ResidualRadius}{1.5799937398052128\times10^{-13}}
-\providecommand{\ResidualLower}{-1.3807106271671758\times10^{-13}}
-\providecommand{\ResidualUpper}{1.7792768524432498\times10^{-13}}
-\providecommand{\DLower}{3.4465883518530394\times10^{-1}}
-\providecommand{\RunArchiveSHA}{4d65357a64a0ccfbf0ed67f8dd0e1970f0ceb549a8cbf647d8490e4ac48abb07}
-\providecommand{\HalfDCArchiveSHA}{ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43}
-\providecommand{\HalfDCCertificateSHA}{2190a52f3520ab0b15683eab592ee1105797d737a22f2e24a869130f5a431ed2}
+\date{}
 
 \begin{document}
 \maketitle
 
-\section{Computer-assisted accuracy proof}
-\label{sec:supp-computer-assisted-accuracy}
-\begingroup
-\setlength{\emergencystretch}{1em}
+\begin{abstract}
+We describe the computer-assisted proof of a uniform residual bound for a
+fixed finite Fourier approximation to a traveling gravity--capillary wave.
+The proof combines finite Fourier algebra (Path A) with interval Taylor
+data and a certified sampled Hilbert transform (Path B). After introducing
+these two pathways, we explain the four nonlinear residual terms in
+increasing order of complexity: $yH[y_u]$, $H[yy_u]$, the local capillary
+term, and the Hilbert-transformed capillary term. The capillary estimates
+include a noncircular proof that the denominator $D$ is strictly positive.
+Signed derivative enclosures are then assembled into the residual, and a
+Taylor remainder bound extends the calculation from the grid to every
+point of the periodic domain. The final appendix separates the numerical
+calculation in Julia/Arb from the assumptions and deductions in Lean.
+\end{abstract}
 
-\subsection{How to read this supplement}
-\label{sec:supp-how-to-read}
+\setcounter{tocdepth}{1}
+\tableofcontents
+\clearpage
 
-This supplement is written as a self-contained computer-assisted-proof
-appendix.  Each numerical claim is tied to a mathematical statement, the
-Julia routine that produced the enclosure, the Lean module that checks the
-corresponding logical consequence, and the archived Crunchy2 artifact from
-which the final constants were taken.  The organization is intentionally
-more explicit than a short Methods section: the goal is to make the boundary
-between discovery, interval computation, formal proof, and remaining
-assumptions auditable by a reader.
+\section{Introduction and proof strategy}
+\label{sec:introduction}
 
-The main theorem exported by the supplement is a residual certificate for a
-single finite cosine series.  The theorem is not a nearby-solution theorem,
-and no step in this document asserts an inverse estimate for the linearized
-Babenko operator.  The supplement therefore records exactly what has been
-certified and exactly what would be needed for a later existence upgrade.
+\subsection{The candidate and the statement being certified}
 
-\subsection{Statement and scope of the certificate}
-\label{sec:supp-cap-scope}
-
-The purpose of the computer-assisted calculation is to certify the accuracy
-of one explicit numerical traveling-wave profile.  After the search and
-polishing stages, the profile is frozen as the finite cosine polynomial
+The object of the proof is the explicit cosine polynomial
 \begin{equation}
- y_N(u)=\frac{a_0}{2}+\sum_{k=1}^{N}a_k\cos(ku),
- \qquad N=\CandidateDegree.
- \label{eq:supp-cap-candidate}
+ y(u)=y_N(u)=\frac{a_0}{2}+\sum_{k=1}^{N}a_k\cos(ku),
+ \qquad N\geq1.
+ \label{eq:candidate}
 \end{equation}
-The coefficients in Eq.~\eqref{eq:supp-cap-candidate} are fixed binary
-floating-point numbers.  The verification treats their exact dyadic values
-as the definition of the candidate; it does not assume that they approximate
-unknown ideal coefficients.  The neural network is therefore a search tool,
-not part of the object appearing in the theorem.
+The stored binary floating-point coefficients are interpreted as exact
+dyadic numbers. Thus the verification concerns this fixed finite function.
+The neural-network search and subsequent polishing produce the candidate;
+they are not part of the mathematical object being certified.
 
-Let \(H\) denote the \(2\pi\)-periodic Hilbert transform with convention
+We use the $2\pi$-periodic Hilbert-transform convention
 \begin{equation}
  H[\cos(ku)]=\sin(ku),\qquad
- H[\sin(ku)]=-\cos(ku),\qquad H[1]=0.
- \label{eq:supp-cap-H-modes}
+ H[\sin(ku)]=-\cos(ku),\qquad H[1]=0,
+ \qquad k\geq1.
+ \label{eq:H-convention}
 \end{equation}
-For
+Introduce
 \begin{equation}
- D=\sqrt{y_u^2+\bigl(1+H[y_u]\bigr)^2},
- \qquad
- G=\frac{1+H[y_u]}{D},
- \label{eq:supp-cap-DG}
+ A=y_u,\qquad \HH=H[y_u],\qquad B=1+\HH,\qquad
+ D=\sqrt{A^2+B^2},\qquad Q=\frac{A}{D},\qquad G=\frac{B}{D}.
+ \label{eq:auxiliaries}
 \end{equation}
-the residual evaluated by the verifier is
+The quotients are used only after a positive lower bound for $D$ has been
+established. With the sign convention of the manuscript, the residual is
 \begin{equation}
-\begin{split}
- R(y)={}&\mu H[y_u]-y-yH[y_u]-H[yy_u]\\
- &+\beta\,\partial_u\!\left(\frac{y_u}{D}\right)
- -\beta H[\partial_uG].
-\end{split}
-\label{eq:supp-cap-residual}
+ \begin{split}
+ R(y)=-\mathcal B(y)
+ &=\mu\HH-y-P-T+\beta L-\beta K,\\
+ P&=y\HH,\qquad T=H[yy_u],\qquad
+ L=Q',\qquad K=H[G'].
+ \end{split}
+ \label{eq:residual}
 \end{equation}
-The PINN uses the parameters \(c\) and \(b\), whereas
-Eq.~\eqref{eq:supp-cap-residual} uses
-\begin{align}
- \mu&=\operatorname{fl}_{64}(c^2)=\BabenkoMu,\\
- \beta&=\operatorname{fl}_{64}(b^2)=\BabenkoBeta,\\
- c&=\WaveSpeed,\qquad b=\PinnBeta.
- \label{eq:supp-cap-parameters}
-\end{align}
-Here \(\operatorname{fl}_{64}\) denotes the stored IEEE double-precision
-result of the indicated operation.  The certificate later records those
-stored values as exact dyadic rationals.  This squaring is part of the
-certificate specification.  Substituting the unsquared PINN parameters into
-Eq.~\eqref{eq:supp-cap-residual} would verify a different equation.
+A prime denotes differentiation with respect to $u$. In particular,
+$P=yH[y_u]$ and $T=H[yy_u]$ are distinct terms. The factor inside the
+second transform is the same candidate $y$.
 
-The calculation proves two continuum inequalities:
+For the fixed stored parameters $\mu$ and $\beta$, the purpose of the
+calculation is to prove
 \begin{equation}
- \inf_{u\in\mathbb R}D(u)>0,
- \qquad
- \sup_{u\in\mathbb R}|R(y_N)(u)|\leq\varepsilon_*.
- \label{eq:supp-cap-objectives}
+ \boxed{D(u)\geq d_*>0,\qquad
+ |R(y_N)(u)|\leq\varepsilon_*
+ \quad\text{for every }u\in\mathbb R.}
+ \label{eq:objectives}
 \end{equation}
-For the successful run,
+The numerical choices and resulting bounds for the proof run are collected
+in Section~\ref{sec:numerics}; their exact rational representations appear
+in Appendix~\ref{sec:certificate}. Since $R=-\mathcal B$, the same absolute
+bound applies to the manuscript residual $\mathcal B$.
+This is an accuracy statement for the supplied profile. A theorem asserting
+an exact nearby wave would additionally require an inverse estimate for
+the linearized operator and a suitable existence argument.
+
+\subsection{How the finite calculation yields a continuum bound}
+
+The proof constructs rigorous information about derivatives, not just
+ordinary floating-point residual samples. Its stages are as follows.
+\begin{enumerate}
+ \item Use the finite Fourier representation to evaluate $y$, $y_u$,
+ $\HH$, and their derivatives, with outward rounding.
+ \item Build local derivative intervals and global derivative bounds for
+ the four nonlinear terms. Finite Hilbert transforms use Path A;
+ sampled transforms with analytic aliasing corrections use Path B.
+ Before forming the capillary quotients, prove $D\geq d>0$ on the entire
+ domain.
+ \item Combine the signed derivative intervals according to
+ \eqref{eq:residual}. Only then take absolute values and apply a Taylor
+ remainder estimate on every grid cell.
+\end{enumerate}
+The signed assembly in the last stage preserves the cancellation between
+residual terms. Adding four separate nonnegative supremum bounds would
+lose the cancellation on which the small residual depends.
+
+Julia/Arb carries out the outward-rounded numerical calculation. Lean
+formalizes the mathematical definitions and reusable analytic estimates.
+For the archived certificate, the final numerical denominator and residual
+bounds enter Lean through two explicit assumptions; the millions of
+intermediate interval operations are not replayed in Lean. The precise
+boundary is stated in Appendix~\ref{sec:trust}.
+
+\subsection{Common notation for interval Taylor data}
+\label{sec:records}
+
+Use the uniform grid and full cell width
 \begin{equation}
- D(u)\geq0.3446588,
- \qquad
- |R(y_{150})(u)|\leq1.78\times10^{-13}
- \quad\text{for every }u\in\mathbb R.
- \label{eq:supp-cap-readable-result}
+ u_j=jh,\qquad h=\frac{2\pi}{\Ngrid},\qquad
+ 0\leq j<\Ngrid,\qquad \Ngrid\geq4\text{ even}.
+ \label{eq:grid}
 \end{equation}
-The manuscript Babenko operator \(\mathcal B\) uses the opposite residual
-sign in the normalization \(g=1\):
+The cells $[u_j,u_j+h]$ cover one period. We denote the final Taylor
+order by an integer $M\geq0$.
+An order-$q$ record for a function $F$ consists of
 \begin{equation}
- R(y_N)(u)=-\mathcal B(y_N)(u).
- \label{eq:supp-cap-sign}
+ \begin{aligned}
+ F^{(m)}(u_j)&\in I_{j,m}(F),&&0\leq m\leq q,\\
+ \norm{F^{(m)}}&\leq C_m(F),&&0\leq m\leq q+1.
+ \end{aligned}
+ \label{eq:record}
 \end{equation}
-Consequently Eq.~\eqref{eq:supp-cap-readable-result} is also the claimed
-bound for \(|\mathcal B(y_{150})|\).
-
-This is an accuracy theorem for a supplied finite series.  It is not an
-existence or uniqueness theorem for an exact nearby water wave.  Such a
-result would additionally require a rigorous inverse bound for the
-linearized Babenko operator and a Newton--Kantorovich or contraction
-argument; neither ingredient is part of the present certificate.
-
-\subsection{Certified statement and proof entry points}
-\label{sec:supp-certified-statement}
-
-\begin{theorem}[Crunchy2 phase--4 \(N=150\) residual certificate]
-\label{thm:supp-crunchy2-residual}
-Let \(y_{150}\) be the finite cosine polynomial in
-Eq.~\eqref{eq:supp-cap-candidate}, with the \CandidateCount{} coefficients
-stored in
-\texttt{CertificatePhase4ScalarN150}\allowbreak
-\texttt{Phase420260827HalfDC.lean}.  Let
-\(\mu=\BabenkoMu\) and \(\beta=\BabenkoBeta\) be the exact dyadic values
-recorded in the same certificate.  Then the denominator \(D\) from
-Eq.~\eqref{eq:supp-cap-DG} is positive for every \(u\in\mathbb R\), and
+All norms are over a complete period, equivalently over $\mathbb R$ for
+periodic functions. The local entries are raw derivatives: division by
+$m!$ occurs only in the Taylor expansion. We also write
 \begin{equation}
- \forall u\in\mathbb R,\qquad
- |R(y_{150})(u)|\leq
- \frac{178}{10^{15}}.
- \label{eq:supp-crunchy2-theorem}
+ U_{j,m}(F)=\sup\{|x|:x\in I_{j,m}(F)\}.
+ \label{eq:U}
 \end{equation}
-Equivalently, for the manuscript Babenko operator \(\mathcal B\) in the
-normalization \(g=1\),
-\begin{equation}
- \forall u\in\mathbb R,\qquad
- |\mathcal B(y_{150})(u)|\leq
- \frac{178}{10^{15}}.
- \label{eq:supp-crunchy2-paper-theorem}
-\end{equation}
-\end{theorem}
+For an Arb ball $[c\mathbin{\pm}r]=[c-r,c+r]$, this is $|c|+r$.
 
-\begin{proof}[Proof architecture]
-The profile and parameters are fixed as exact rational data in the generated
-Lean certificate.  Julia/Arb proves the denominator and residual anchors
-\(\mathsf A_D\) and \(\mathsf A_R\) described in
-Eqs.~\eqref{eq:supp-cap-anchor-D}--\eqref{eq:supp-cap-anchor-R}.  Lean then
-checks the denominator corollary, the residual theorem on one period, the
-periodic extension to all real \(u\), the exact rational comparison
-\(\varepsilon_{0,\rm cert}<178/10^{15}\), and the sign bridge between
-\(R\) and \(\mathcal B\).  The two Arb anchors are the only
-certificate-specific numerical assumptions in the final theorem.
-\end{proof}
+Arb evaluates elementary operations, including $\pi$, trigonometric
+functions, products, and admissible square roots and reciprocals, with
+outward rounding. The working precision is specified with the run
+parameters in Section~\ref{sec:numerics}. A symbol
+$C_m(F)$ always denotes a nonnegative scalar upper bound; if its defining
+expression is computed as a ball, the outward upper endpoint is used.
+The ball for a bound expression need not enclose the exact supremum norm.
 
-\begin{proposition}[Interval computation recorded by the archive]
-\label{prop:supp-interval-archive}
-The archived Crunchy2 run for
-\texttt{phase4\_20260827\_scalar\_N150} produced the Arb ball
-\begin{equation}
- B_R=[\ResidualMidpoint\mathbin{\pm}\ResidualRadius],
- \label{eq:supp-recorded-ball}
-\end{equation}
-whose outward endpoints are
-\[
- \ResidualLower\leq B_R\leq\ResidualUpper.
-\]
-The upper endpoint is the value serialized as
-\(\varepsilon_{0,\rm cert}\).  The same run produced the denominator lower
-endpoint \(D_{\rm lower}=\DLower\), serialized as
-\(D_{\rm lower,cert}\).
-\end{proposition}
+Pointwise interval arithmetic accounts for rounding error. Additional
+analytic estimates account for variation between nodes, unresolved Fourier
+modes, and derivative growth. These estimates are described explicitly
+below and are also evaluated with outward rounding.
 
-\begin{proposition}[Formal trust boundary]
-\label{prop:supp-formal-trust-boundary}
-The exact residual and paper-operator Lean theorems depend on
-\texttt{cert\_arb\_dmin\_bound} and
-\texttt{cert\_arb\_sup\_bound\_le\_eps0}, together with the standard Mathlib
-principles \texttt{propext}, \texttt{Classical.choice}, and
-\texttt{Quot.sound}.  The denominator theorem uses only the denominator
-anchor and the standard principles.  The half-DC convention lemmas and
-paper-sign alignment theorem use no certificate-specific numerical axioms.
-\end{proposition}
+\section{The two estimation pathways}
+\label{sec:paths}
 
-\begin{center}
-\small
-\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.23\linewidth}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedright\arraybackslash}p{0.36\linewidth}@{}}
-\toprule
-Certified item & Julia or archive entry & Lean entry \\
-\midrule
-Finite candidate and dyadic parameters &
-\path{pinn_a_coeffs_N150_phase4_20260827.txt};
-\path{Certificate.jl} &
-\texttt{CertificatePhase4ScalarN150}\allowbreak
-\texttt{Phase420260827HalfDC.lean} \\
-\addlinespace
-Path-A Hilbert transform on finite series &
-\path{src/FourierSeries.jl} &
-\path{Definitions.lean};
-\path{HilbertOnTrigPoly.lean} \\
-\addlinespace
-Path-B sampled Hilbert transform and aliasing &
-\path{src/FFTHilbert.jl} &
-\path{AliasingErrorBound.lean};
-\path{FFTHilbertCorrectness.lean} \\
-\addlinespace
-Taylor data, products, reciprocal, square root &
-\path{src/TaylorSeries.jl};
-\path{src/GDerivatives.jl} &
-\path{LeibnizBound.lean};
-\path{FaaDiBrunoBound.lean};
-\path{TaylorSeriesCorrectness.lean} \\
-\addlinespace
-Denominator positivity &
-\texttt{dmin\_bound};
-\path{staged_dlower.arbdump} &
-\path{DminBoundCorrectness.lean};
-\texttt{cert\_arb\_dmin\_bound} \\
-\addlinespace
-Residual assembly and continuum scan &
-\path{src/ResidualBound.jl};
-\path{staged_bound.arbdump} &
-\path{GridToSupNormTaylor.lean};
-\path{ResidualAssemblyCorrectness.lean};
-\texttt{cert\_arb\_sup\_bound\_le\_eps0} \\
-\addlinespace
-Paper theorem and audit &
-\path{phase4_scalar_n150_20260827_2m_results_20260829.tgz} &
-\texttt{MainPhase4ScalarN150}\allowbreak
-\texttt{Phase420260827HalfDC.lean};
-\path{PaperAudit.lean} \\
-\bottomrule
-\end{tabular}
-\end{center}
+\subsection{Path A: finite Fourier algebra}
+\label{sec:path-a}
 
-\subsection{Overview of the proof architecture}
-\label{sec:supp-cap-overview}
-
-The proof has three conceptual layers.  First, finite Fourier algebra
-constructs the candidate and handles the Hilbert transform whenever its
-input is a known trigonometric polynomial.  Second, Julia and Arb compute
-outward-rounded interval enclosures for the nonlinear residual, add analytic
-corrections for unresolved Fourier modes, and use Taylor's theorem to pass
-from a grid to the whole torus.  Third, Lean defines the same mathematical
-objects, proves the reusable analytic lemmas underlying the calculation, and
-checks the exact logical consequences of the exported numerical
-certificate.
-
-The Hilbert-transform work is divided into two pathways.
-\begin{description}
- \item[Path A: finite trigonometric algebra.]
- The input has a finite Fourier representation, so \(H\) acts
- mode-by-mode using Eq.~\eqref{eq:supp-cap-H-modes}.  No sampling or aliasing
- correction is needed for this operation.
-
- \item[Path B: certified sampled transform.]
- The input is represented by interval-enclosed values and derivatives on a
- uniform grid, rather than by a finite exact coefficient vector.  A discrete
- Hilbert transform is evaluated by certified convolution, and a rigorous
- Fourier-tail estimate is added to enclose the continuous transform.
-\end{description}
-Path B is essential for \(H[\partial_uG]\), because the square root and
-reciprocal in Eq.~\eqref{eq:supp-cap-DG} generally give \(G\) an infinite
-Fourier series.  The current Julia implementation also routes
-\(H[yy_u]\) through Path B for uniformity, although \(yy_u\) is itself a
-finite trigonometric polynomial.  For the present candidate its degree is at
-most 300, far below the Nyquist frequency of the two-million-point grid, so
-an exact coefficient treatment would have no unresolved modes.  The generic
-Path-B routine does not exploit that special fact and adds its valid but
-conservative tail correction.  This implementation choice does not project
-the product back to degree \(N\).
-
-\subsection{The finite candidate and nonlinear mode generation}
-\label{sec:supp-cap-candidate-construction}
-
-The final-stage PINN fields were sampled on a Fourier grid and projected onto
-finite trigonometric series.  Their coefficients initialized Newton's method
-for a degree--160 Galerkin system.  After polishing, the auxiliary fields
-were discarded and the scalar profile was truncated to degree
-\(N=\CandidateDegree\), leaving \CandidateCount{} stored coefficients in
-Eq.~\eqref{eq:supp-cap-candidate}.  A high-precision non-interval diagnostic
-gave a residual of approximately \(1.88\times10^{-14}\); this diagnostic is
-not used in the proof.
-
-Only the candidate is truncated.  The nonlinear residual is not projected
-onto the first \(N\) modes.  In particular,
-\begin{equation}
- \cos(ku)\sin(\ell u)
- =\frac12\bigl(\sin((k+\ell)u)+\sin((\ell-k)u)\bigr),
- \label{eq:supp-cap-product-modes}
-\end{equation}
-so products such as \(yy_u\) and \(yH[y_u]\) can contain modes through
-degree \(2N=300\).  The implementation forms the complete products.  The
-non-polynomial functions \(D\), \(D^{-1}\), and \(G\) are not replaced by
-finite Fourier truncations at all; they are represented by interval Taylor
-data and global derivative bounds.
-
-\subsection{Path A: exact finite Fourier algebra}
-\label{sec:supp-cap-path-a}
-
-For a trigonometric polynomial
+For a finite trigonometric polynomial
 \begin{equation}
  F(u)=\frac{\alpha_0}{2}
- +\sum_{k=1}^{K}\bigl(\alpha_k\cos(ku)+\gamma_k\sin(ku)\bigr),
- \label{eq:supp-cap-trigpoly}
+ +\sum_{k=1}^{J}\bigl(\alpha_k\cos(ku)+\gamma_k\sin(ku)\bigr),
 \end{equation}
-Path A constructs
+the Hilbert transform is the finite expression
 \begin{equation}
- H[F](u)=\sum_{k=1}^{K}
+ H[F](u)=\sum_{k=1}^{J}
  \bigl(\alpha_k\sin(ku)-\gamma_k\cos(ku)\bigr).
- \label{eq:supp-cap-path-a-action}
+ \label{eq:path-a}
 \end{equation}
-Differentiation and multiplication are likewise carried out by finite
-coefficient formulas.  The inputs are Arb balls, so ``exact'' here means
-exact at the level of the finite Fourier representation: every arithmetic
-rounding error is enclosed by Arb, and there is no Fourier truncation or
-aliasing error attached to the operation.
+Differentiation and multiplication also have finite coefficient formulas.
+Here ``finite'' means that no Fourier tail is discarded; numerical
+rounding in coefficient arithmetic and evaluation is still enclosed by
+Arb. Products retain the degree they generate.
 
-Applying Eq.~\eqref{eq:supp-cap-path-a-action} to
+Applied to the candidate, Path A gives
 \begin{equation}
- y_u(u)=-\sum_{k=1}^{N}k a_k\sin(ku)
+ A(u)=-\sum_{k=1}^{N}ka_k\sin(ku),\qquad
+ \HH(u)=\sum_{k=1}^{N}ka_k\cos(ku).
+ \label{eq:A-Hy}
 \end{equation}
-gives
+The latter expression is used both in $P=y\HH$ and in the capillary
+quantity $B=1+\HH$.
+
+Finite coefficient sums provide global derivative bounds:
 \begin{equation}
- H[y_u](u)=\sum_{k=1}^{N}k a_k\cos(ku).
- \label{eq:supp-cap-Hyu}
+ \norm{F^{(m)}}\leq
+ \sum_{k=1}^{J}k^m\bigl(|\alpha_k|+|\gamma_k|\bigr),
+ \qquad m\geq1,
+ \label{eq:trig-bound}
 \end{equation}
-This explicit function is denoted \(H_y\) in the implementation.  It is
-used directly in \(D\), \(G\), and the local product \(yH_y\).
+with $|\alpha_0|/2$ included for $m=0$. In particular, usable seed bounds
+for the candidate are
+\begin{align}
+ C_0(y)&=\frac{|a_0|}{2}+\sum_{k=1}^{N}|a_k|,
+ &C_m(y)&=\sum_{k=1}^{N}k^m|a_k|\quad(m\geq1),\label{eq:y-bounds}\\
+ C_m(A)&=\sum_{k=1}^{N}k^{m+1}|a_k|,
+ &C_m(\HH)&=\sum_{k=1}^{N}k^{m+1}|a_k|\quad(m\geq0).
+ \label{eq:A-Hy-bounds}
+\end{align}
+Thus $C_0(B)=1+C_0(\HH)$ and $C_m(B)=C_m(\HH)$ for $m\geq1$
+are valid bounds. Evaluating the differentiated finite series at the nodes
+supplies $I_{j,m}$ without numerical differencing.
 
-For any derivative order \(p\geq1\), the same coefficient data give the
-rigorous global estimate
+\subsection{Path B: interval data and a certified sampled transform}
+\label{sec:path-b}
+
+The quotients in \eqref{eq:auxiliaries} generally have infinitely many
+Fourier modes even though $y$ is a finite polynomial. Path B works from
+interval-enclosed samples and derivatives, and corrects a discrete Hilbert
+transform to enclose the continuous one. Its nonlinear input data are
+constructed by interval Taylor arithmetic.
+
+Let $F$ be a smooth periodic function. For even $\Ngrid$, the discrete
+Hilbert transform has multipliers $-i$ on positive principal frequencies,
+$+i$ on negative principal frequencies, and zero on the constant and
+Nyquist modes. At a node it can be written as
 \begin{equation}
- \|F^{(p)}\|_\infty
- \leq\sum_{k=1}^{K}k^p\bigl(|\alpha_k|+|\gamma_k|\bigr),
- \label{eq:supp-cap-trig-sup}
-\end{equation}
-with the constant term included separately when \(p=0\).  These finite sums
-are evaluated with outward rounding and seed the derivative-bound chain used
-by both pathways.
-
-The corresponding Lean files are
-\begin{center}
- \texttt{Definitions.lean},\qquad \texttt{HilbertOnTrigPoly.lean}.
-\end{center}
-The first defines the Fourier-multiplier operator.  The second proves the
-sine and cosine rules, compatibility with finite sums, and the bridge theorem
-\begin{center}
- \texttt{periodicHilbert\_yu\_eq\_Hyu}.
-\end{center}
-Thus the explicit finite expression in Eq.~\eqref{eq:supp-cap-Hyu} is proved
-to equal the abstract Fourier-defined Hilbert transform of \(y_u\).
-
-\subsection{Path B: certified discrete Hilbert transform}
-\label{sec:supp-cap-path-b}
-
-Let \(F\) be a smooth real \(2\pi\)-periodic function and let
-\(u_j=2\pi j/N_{\rm grid}\), where \(N_{\rm grid}\) is even.  The discrete
-Hilbert transform has Fourier multipliers \(-i\) on positive discrete
-frequencies, \(+i\) on negative frequencies, and zero at the constant and
-Nyquist modes.  Julia realizes this operator as the circular convolution
-\begin{equation}
- H_{N_{\rm grid}}[F](u_j)
- =\sum_{n=0}^{N_{\rm grid}-1}h_n
- F(u_{j-n\bmod N_{\rm grid}}),
- \label{eq:supp-cap-cot-convolution}
-\end{equation}
-with
-\begin{equation}
- h_n=
- \begin{cases}
- \displaystyle\frac{2}{N_{\rm grid}}
- \cot\!\left(\frac{\pi n}{N_{\rm grid}}\right),&n\text{ odd},\\[1.2ex]
+ H_{\Ngrid}[F](u_j)=\sum_{n=0}^{\Ngrid-1}h_n
+ F(u_{j-n\bmod\Ngrid}),\qquad
+ h_n=\begin{cases}
+ \displaystyle\frac{2}{\Ngrid}\cot\!\left(\frac{\pi n}{\Ngrid}\right),
+       &n\text{ odd},\\[1ex]
  0,&n\text{ even}.
  \end{cases}
- \label{eq:supp-cap-cot-kernel}
+ \label{eq:discrete-H}
 \end{equation}
-The cotangent formula is not a second definition of the continuous Hilbert
-transform.  It is the inverse discrete Fourier transform of the discrete
-multiplier, and therefore an efficient real-space implementation of the
-same finite-dimensional operator.
+This kernel is the inverse discrete Fourier transform of the multiplier.
+The implementation computes the circular convolution by certified Arb
+complex-ball polynomial multiplication and folding modulo $x^{\Ngrid}-1$.
+Outward rounding encloses errors in the kernel, input samples, and
+convolution arithmetic.
 
-The circular convolution is computed as a linear polynomial convolution
-followed by folding modulo \(x^{N_{\rm grid}}-1\).  Arb complex-ball
-polynomial multiplication encloses all arithmetic and transform rounding.
-The use of a fast convolution algorithm affects runtime, not the operator or
-the proof.
-
-The sampled transform still differs from the continuous Hilbert transform
-because Fourier modes separated by a multiple of \(N_{\rm grid}\) have the
-same samples.  Write
+\paragraph{Correction for aliasing.}
+Write
 \begin{equation}
  \widehat F_k=\frac{1}{2\pi}\int_0^{2\pi}F(u)e^{-iku}\,du.
 \end{equation}
-If \(F\) is periodic and
-\(\|F^{(p)}\|_\infty\leq C_p\) for an integer \(p\geq2\), integration by
-parts \(p\) times gives
+For an integer $p\geq2$, periodic integration by parts gives
 \begin{equation}
- |\widehat F_k|\leq\frac{C_p}{|k|^p},\qquad k\ne0.
- \label{eq:supp-cap-fourier-decay}
+ |\widehat F_k|\leq\frac{C_p(F)}{|k|^p},\qquad k\ne0.
+ \label{eq:decay}
 \end{equation}
-The discrete Fourier coefficient at a principal frequency is the sum of all
-continuous coefficients aliased into that class.  The continuous and
-discrete Hilbert multipliers differ by at most two on an aliased mode.
-Combining this observation with Eq.~\eqref{eq:supp-cap-fourier-decay}, the
-two-sided Fourier tail, and the integral test yields
-\begin{equation}
- \bigl|H[F](u_j)-H_{N_{\rm grid}}[F](u_j)\bigr|
- \leq
- \varepsilon_{\rm alias}(F)
- :=\frac{4C_p}
- {(p-1)(N_{\rm grid}/2-1)^{p-1}}.
- \label{eq:supp-cap-aliasing}
-\end{equation}
-The symmetric interval
-\([ -\varepsilon_{\rm alias},\varepsilon_{\rm alias} ]\) is added to every
-output ball.  The resulting balls enclose the continuous Hilbert transform
-at the grid nodes, not merely its discrete approximation.
-
-The transform is applied at every derivative level needed by the final
-Taylor argument.  Since the periodic Hilbert transform commutes with
-differentiation under the smoothness hypotheses used here,
-\begin{equation}
- \partial_u^mH[F]=H[\partial_u^mF],
- \label{eq:supp-cap-H-commutes}
-\end{equation}
-the same calculation supplies local enclosures of all required derivatives.
-Global derivative bounds for the output use
-\begin{equation}
- \|H[F]\|_\infty\leq\frac{\pi^2}{3}\|F''\|_\infty,
- \label{eq:supp-cap-H-tail}
-\end{equation}
-which follows by two integrations by parts and
-\(2\sum_{k\geq1}k^{-2}=\pi^2/3\).
-
-The Lean file \texttt{AliasingErrorBound.lean} proves the DFT sampling
-identity, Fourier-decay and tail estimates, the bound
-Eq.~\eqref{eq:supp-cap-aliasing}, and the equivalence between the multiplier
-form and the cotangent convolution in Eq.~\eqref{eq:supp-cap-cot-convolution}.
-The file \texttt{FourierTailHilbert.lean} proves
-Eq.~\eqref{eq:supp-cap-H-tail} and the supporting Fourier/Hilbert facts.
-Finally, \texttt{FFTHilbertCorrectness.lean} packages these results into
-correctness theorems for one transform and for the derivative-indexed Taylor
-data returned by Julia.
-
-\subsection{Interval Taylor data}
-\label{sec:supp-cap-taylor-data}
-
-An Arb ball \([m\mathbin{\pm}r]\) represents the closed interval
-\([m-r,m+r]\).  Elementary operations such as addition, multiplication,
-division away from zero, square root on a positive interval, sine, and cosine
-are rounded outward.  Repeated use of the interval inclusion principle then
-guarantees that the final ball contains the exact result for the supplied
-dyadic inputs.
-
-The rigor of the full verifier is not automatic from pointwise ball
-arithmetic alone.  The code also supplies mathematical bounds for variation
-between grid points, unresolved Fourier modes, and nonlinear derivative
-growth.  These analytic corrections are computed as Arb balls and inserted
-explicitly into the enclosure.
-
-For a function \(F\), Julia's \texttt{TaylorSeries} object stores
-\begin{equation}
- F^{(m)}(u_j)\in I_{j,m}(F),
- \quad 0\leq m\leq M,
- \qquad
- C_m(F)\geq\|F^{(m)}\|_\infty,
- \quad 0\leq m\leq M+1.
- \label{eq:supp-cap-taylor-record}
-\end{equation}
-Products use the exact Leibniz identity
-\begin{equation}
- (FQ)^{(m)}
- =\sum_{r=0}^{m}\binom mr F^{(r)}Q^{(m-r)},
- \label{eq:supp-cap-leibniz}
-\end{equation}
-both for local derivative balls and for global bounds.  Reciprocals and
-square roots are propagated through Fa\`a di Bruno formulas.  A downward
-grid-and-Lipschitz pass can tighten an existing bound by
-\begin{equation}
- \|F^{(m)}\|_\infty
- \leq
- \max_j\sup\{|x|:x\in I_{j,m}(F)\}
- +hC_{m+1}(F),
- \qquad h=\frac{2\pi}{N_{\rm grid}}.
- \label{eq:supp-cap-tightening}
-\end{equation}
-The new bound is retained only when its outward upper endpoint improves the
-previous rigorous estimate.
-
-\subsection{\texorpdfstring{Worked evaluation of \(yH[y_u]\)}
-{Worked evaluation of yHyu}}
-\label{sec:supp-cap-yhyu-worked}
-
-This subsection spells out one representative nonlinear term in the
-residual, namely
-\begin{equation}
- P(u)=y(u)H[y_u](u).
- \label{eq:supp-cap-P-yhyu}
-\end{equation}
-The notation is multiplicative: \(P\) is the pointwise product of \(y\) and
-the Hilbert transform of \(y_u\).  It is not the term \(H[yy_u]\), which is
-computed separately.  This distinction matters because \(yH[y_u]\) is a
-local nonlinear product, while \(H[yy_u]\) applies a nonlocal Fourier
-multiplier after multiplication.
-
-For the certified candidate,
-\begin{equation}
- y(u)=\frac{a_0}{2}+\sum_{k=1}^{N}a_k\cos(ku),
- \qquad N=\CandidateDegree.
-\end{equation}
-Path A differentiates and applies the periodic Hilbert transform
-mode-by-mode, giving
-\begin{equation}
- y_u(u)=-\sum_{k=1}^{N}ka_k\sin(ku),
- \qquad
- H[y_u](u)=\sum_{k=1}^{N}ka_k\cos(ku).
- \label{eq:supp-cap-yu-Hyu-worked}
-\end{equation}
-Thus \(P\) is itself a finite even trigonometric polynomial.  Formally,
-\begin{equation}
- P(u)=
- \left(\frac{a_0}{2}+\sum_{k=1}^{N}a_k\cos(ku)\right)
- \left(\sum_{\ell=1}^{N}\ell a_\ell\cos(\ell u)\right),
- \label{eq:supp-cap-yhyu-product-expanded}
-\end{equation}
-and the identity
-\begin{equation}
- \cos(ku)\cos(\ell u)
- =\frac12\bigl(\cos((k+\ell)u)+\cos((k-\ell)u)\bigr)
-\end{equation}
-shows that modes through degree \(2N\) may occur.  No projection back to
-degree \(N\) is made.
-
-The production verifier evaluates Eq.~\eqref{eq:supp-cap-P-yhyu} through
-interval Taylor data.  Let
-\[
- u_j=\frac{2\pi(j-1)}{N_{\rm grid}},
- \qquad
- j=1,\ldots,N_{\rm grid},
- \qquad
- N_{\rm grid}=\VerificationGrid.
-\]
-For \(F=y\) and \(F=H[y_u]\), Julia first constructs a Taylor record
-consisting of Arb balls
-\begin{equation}
- F^{(m)}(u_j)\in I_{j,m}(F),
- \qquad 0\leq m\leq M,
- \label{eq:supp-cap-yhyu-input-records}
-\end{equation}
-and global derivative bounds
-\begin{equation}
- C_m(F)\geq\|F^{(m)}\|_\infty,
- \qquad 0\leq m\leq M+1.
- \label{eq:supp-cap-yhyu-input-supbounds}
-\end{equation}
-For the certificate \(M=\TaylorOrder\).  The values in
-Eq.~\eqref{eq:supp-cap-yhyu-input-records} are not ordinary floating-point
-samples: each entry is obtained by evaluating a finite trigonometric
-polynomial, or one of its coefficient derivatives, using Arb enclosures of
-the coefficients and outward-rounded sine and cosine operations.  The bounds in
-Eq.~\eqref{eq:supp-cap-yhyu-input-supbounds} come from the finite
-coefficient estimate in Eq.~\eqref{eq:supp-cap-trig-sup}.
-
-The Taylor record for \(P=yH[y_u]\) is then built by the Leibniz rule.  For
-each grid point and each \(0\leq m\leq M\),
-\begin{equation}
- P^{(m)}(u_j)\in
- I_{j,m}(P):=
- \sum_{r=0}^{m}\binom mr
- I_{j,r}(y)\,I_{j,m-r}(H[y_u]),
- \label{eq:supp-cap-yhyu-local-leibniz}
-\end{equation}
-where the products and sums on the right are interval operations rounded
-outward.  The corresponding initial global derivative bounds satisfy
-\begin{equation}
- \|P^{(m)}\|_\infty\leq C_m^{\rm seed}(P):=
- \sum_{r=0}^{m}\binom mr
- C_r(y)\,C_{m-r}(H[y_u]),
- \qquad 0\leq m\leq M+1.
- \label{eq:supp-cap-yhyu-sup-leibniz}
-\end{equation}
-The sum is evaluated outward, and its upper endpoint supplies the stored
-bound.  After this product record is formed, the grid-and-Lipschitz pass
-computes
-\begin{equation}
- G_m(P)=\max_j\sup\{|x|:x\in I_{j,m}(P)\},\qquad 0\leq m\leq M,
-\end{equation}
-and walks downwards from \(m=M\) to \(m=0\), implementing the update
-\begin{equation}
- C_{M+1}(P)=C_{M+1}^{\rm seed}(P),\qquad
- C_m(P)=\min\{C_m^{\rm seed}(P),\,G_m(P)+hC_{m+1}(P)\}.
- \label{eq:supp-cap-yhyu-tightening}
-\end{equation}
-Here the minimum denotes comparison of outward upper endpoints, and
-\(C_{m+1}(P)\) is the already updated next-order bound.  The mean value
-theorem on each cell justifies the second candidate.  This pass changes
-only the global bound vector; the local derivative balls remain unchanged.
-
-For the production order \(M=6\), the pass can improve orders \(6,5,\ldots,0\)
-but leaves \(C_7(P)\) unchanged.  This distinction determines its role in
-the final certificate: \(P\) enters the residual additively, and the final
-order-six scan uses its local derivative balls and its order-seven bound.
-Consequently, tightening the lower bounds of this particular product does
-not improve the final residual estimate in the current pipeline.  The same
-tightening routine can affect the final estimate elsewhere, when tightened
-bounds feed subsequent products, nonlinear compositions, or truncation of a
-higher-order Taylor record.
-
-Only after the product Taylor record has been assembled does the verifier
-use Taylor's theorem on a cell.  For \(u=u_j+t\), \(0\leq t\leq h\), with
-\(h=2\pi/N_{\rm grid}\), the product alone satisfies
-\begin{equation}
- |P(u)|\leq
- \sum_{m=0}^{M}
- \frac{U_{j,m}(P)h^m}{m!}
- +\frac{C_{M+1}(P)h^{M+1}}{(M+1)!},
- \label{eq:supp-cap-yhyu-cell-bound}
-\end{equation}
-where \(U_{j,m}(P)=\sup\{|x|:x\in I_{j,m}(P)\}\).  In the residual
-calculation, \(P\) is not scanned in isolation for the final theorem; its
-row-wise derivative balls are subtracted into the residual Taylor record,
-and the final scan is applied to the assembled residual.  Equation
-\eqref{eq:supp-cap-yhyu-cell-bound} is nevertheless the local continuum
-principle that justifies the product record itself.
-
-\paragraph{Julia pipeline for this term.}
-The monolithic route in \texttt{ResidualBound.jl} constructs the term as
-follows:
-\begin{verbatim}
-y   = cosine_series(y_coeffs; prec=prec)
-yu  = deriv(y)
-Hyu = hilbert(yu)
-
-ts_y_h = trigpoly_to_taylor(y, N_grid, M_h; prec=prec)
-ts_Hyu = trigpoly_to_taylor(Hyu, N_grid, M_order; prec=prec)
-ts_y   = truncate_order(ts_y_h, M_order)
-
-ts_y_Hyu = ts_y * ts_Hyu
-ts_R = Arb(mu; prec=prec) * ts_Hyu - ts_y - ts_y_Hyu - ts_Hyyu
-\end{verbatim}
-The first three lines are finite Fourier algebra.  The two
-\texttt{trigpoly\_to\_taylor} calls evaluate derivative towers at the global
-grid points and attach derivative sup-norm bounds.  The multiplication line
-is the Leibniz construction in
-Eq.~\eqref{eq:supp-cap-yhyu-local-leibniz}; it does not multiply two
-already-scanned cell supremum bounds.  Internally, multiplication ends with
-\texttt{return tighten\_sup\_bounds!(out)} in \texttt{TaylorSeries.jl}.
-
-The sharded Crunchy2 route performs the same operations on contiguous
-blocks of rows.  The following excerpt uses the setup record \texttt{su},
-precision \texttt{p}, and accumulator defined by that driver:
-\begin{verbatim}
-for si in shard_range
-    jr = su.shards[si]
-    ts_y_h = trigpoly_to_taylor(su.y, su.N_grid, su.M_h;
-                               prec=p, j_range=jr)
-    ts_Hyu = trigpoly_to_taylor(su.Hyu, su.N_grid, M_order;
-                               prec=p, j_range=jr)
-    ts_y   = truncate_order(ts_y_h, M_order)
-
-    ts_y_Hyu = ts_y * ts_Hyu
-    _acc!(acc_yHyu, ts_y_Hyu.derivs, M_order)
-    write_matrix_slices(store, "yHyu", si, ts_y_Hyu.derivs)
-end
-\end{verbatim}
-The accumulator records per-derivative maxima needed for the later
-grid-and-Lipschitz tightening.  In the scalar replay stage, the same
-Leibniz formula is applied to the global sup-bound vectors, then tightened
-using maxima merged over the entire grid:
-\begin{verbatim}
-sb_y_Hyu = _leibniz_sup_bounds(sb_y, sb_Hyu,
-                              M_order, p, su.binom_M)
-_tighten_from_max!(sb_y_Hyu, st.acc_yHyu.ubs,
-                   M_order, su.h_arb, p)
-\end{verbatim}
-These are the global bounds used in the replay; maxima from a single shard
-alone do not certify a bound on the entire period.  The loop inside
-\texttt{\_tighten\_from\_max!} visits \texttt{M:-1:0}, leaving
-\texttt{sb\_y\_Hyu[M+2]} unchanged.  In the final scan, the stored \texttt{yHyu} rows
-are read back and subtracted in the same algebraic order as the monolithic
-residual assembly.
-
-\paragraph{Lean interface for this term.}
-Lean defines the functions appearing above as finite sums:
+Sampling identifies modes whose indices differ by a multiple of $\Ngrid$.
+For $|k|<\Ngrid/2$ the continuous and discrete multipliers agree; for the
+remaining modes their difference has absolute value at most two.
+Consequently, for even $\Ngrid\geq4$,
 \begin{align}
- y(a,u)&=\sum_k a_k\cos(ku),\\
- y_u(a,u)&=-\sum_k k a_k\sin(ku),\\
- H_y(a,u)&=\sum_k k a_k\cos(ku).
+ |H[F](u_j)-H_{\Ngrid}[F](u_j)|
+ &\leq2\sum_{|k|\geq\Ngrid/2}|\widehat F_k|\notag\\
+ &\leq4C_p(F)\sum_{k=\Ngrid/2}^{\infty}k^{-p}\notag\\
+ &\leq\frac{4C_p(F)}{(p-1)(\Ngrid/2-1)^{p-1}}
+ =:\epsa(F;p).
+ \label{eq:alias}
 \end{align}
-The theorem \texttt{periodicHilbert\_yu\_eq\_Hyu} identifies the explicit
-finite sum \(H_y\) with the abstract Fourier-defined periodic Hilbert
-transform of \(y_u\).  Lean's sum uses the full constant coefficient; the
-generated half-DC certificate therefore stores \(a_0/2\) in its zeroth
-coefficient to match Julia's convention.
+The last step uses the integral test. Adding the symmetric interval
+$[-\epsa(F;p),\epsa(F;p)]$ to the discrete output therefore encloses the
+continuous transform at each node.
 
-The generic proof in \texttt{CertificateAxioms.lean} asks its assumed Arb
-interface for Taylor records of \(y\) and \(H_y\), and applies the
-Taylor-series multiplication certificate.  Schematically (with angle
-brackets denoting Lean tuple destructuring and omitted arguments denoted by
-ellipses):
-\begin{verbatim}
-obtain <ts_y, h_y, hh_y> :=
-  cert_arb_trigpoly_to_taylor (y a_cert) M N_fft hN_fft 0 ...
-
-obtain <ts_Hyu, h_Hyu, hh_Hyu> :=
-  cert_arb_trigpoly_to_taylor (Hyu a_cert) M N_fft hN_fft 0 ...
-
-obtain <ts_yHyu, h_yHyu, hh_yHyu> :=
-  cert_arb_ts_mul h_y h_Hyu (hh_y.trans hh_Hyu.symm)
-\end{verbatim}
-The resulting semantic statement is that \texttt{ts\_yHyu} is a valid
-Taylor record for
-\[
- u\mapsto y(a_{\rm cert},u)\,H_y(a_{\rm cert},u).
-\]
-During residual assembly this generic proof subtracts the record after forming
-\(\mu H_y-y\).  Thus the formal proof tracks the same operator order as the
-Julia computation: \(y\), \(H_y\), product \(yH_y\), then subtraction into
-the residual.
-
-The dedicated half-DC theorem for the two-million-point run uses a different
-numerical interface, in the module
-\texttt{PaperCertificateAxioms}:
-it assumes the two numerical certificates
-\texttt{cert\_arb\_dmin\_bound} and
-\texttt{cert\_arb\_sup\_bound\_le\_eps0}, then proves periodic extension
-of the residual bound in Lean.  It does not independently replay the Arb
-product or its tightening pass.  The generic excerpt above describes the
-term's Taylor-record interface, not the numerical dependency chain of that
-dedicated theorem.
-
-\paragraph{Performance role.}
-The archived Crunchy2 logs do not isolate a separate timer for
-\texttt{yHyu}.  Its cost is included in the first sharded pointwise stage,
-where each worker also computes \(yy_u\), denominator data, reciprocal data,
-and the capillary auxiliary records.  For each grid row, the
-\texttt{yHyu} product uses the \(M+1\) stored derivative columns and the
-triangular Leibniz sums, hence \(O(M^2)\) Arb operations per grid point
-with \(M=\TaylorOrder\).  At order six this is 28 Leibniz summands per row,
-or 56 million across the full grid.  The grid reduction for tightening
-visits seven derivative columns, or 14 million entries; its scalar downward
-pass has seven steps.  These operation counts do not determine separate
-wall times, which were not recorded for this term.
-
-In the production run the eight first-stage workers ran concurrently.  Their
-wall times ranged from 1:56:25 to 2:14:58, with peak resident memory between
-4.972 GB and 9.324 GB.  The subsequent serial stages took 1:22.08 for the
-merge, 21:33.92 for the certified FFT/Hilbert stage, and 11:49.78 for the
-final residual scan.  Since the first-stage workers overlap, the effective
-post-warmup wall time is approximately the slowest worker plus these serial
-stages, about 2:49:44.  Sharding keeps \texttt{yHyu} as 1024-row Taylor
-blocks in memory during stage 1 and as exact Arb slices on disk afterward;
-the full two-million-row product matrix is never required to reside in RAM
-at once.
-
-\subsection{Positivity of the capillary denominator}
-\label{sec:supp-cap-denominator}
-
-The reciprocal terms are not evaluated until \(D\) has been proved
-positive.  Set
+\paragraph{Derivative records for the transformed function.}
+For the smooth functions used here, $\partial_u^mH[F]=H[F^{(m)}]$.
+Let $\mathcal H_{j,m}(F)$ be the interval obtained by applying
+\eqref{eq:discrete-H} to the entire sample column
+$\{I_{\ell,m}(F)\}_{\ell=0}^{\Ngrid-1}$. Then
 \begin{equation}
- A=y_u,\qquad B=1+H[y_u],\qquad D=\sqrt{A^2+B^2}.
+ I_{j,m}(H[F])=
+ \mathcal H_{j,m}(F)+[-e_m(F),e_m(F)],\qquad
+ e_m(F)=\frac{4C_{m+p}(F)}{(p-1)(\Ngrid/2-1)^{p-1}}
+ \label{eq:path-b-record}
 \end{equation}
-At each grid point, Arb computes a lower endpoint \(\underline D_j\) for
-\(D(u_j)\).  The reverse triangle inequality gives
+is valid whenever the indicated global derivative bound is available.
+One may choose a separate admissible $p\geq2$ for each column; the notation
+above displays the rule for any such choice.
+
+A global bound follows from the same Fourier decay with $p=2$:
 \begin{equation}
+ \norm{H[F]}\leq2\sum_{k=1}^{\infty}k^{-2}\norm{F''}
+ =\frac{\pi^2}{3}\norm{F''}.
+ \label{eq:H-global}
+\end{equation}
+Thus an admissible output bound at derivative order $m$ is
+\begin{equation}
+ C_m(H[F])=\frac{\pi^2}{3}C_{m+2}(F).
+ \label{eq:H-global-derivatives}
+\end{equation}
+The extra derivatives are part of the proof: a final order-$M$ transformed
+record needs more input information than its $M+1$ sampled columns alone.
+The two uses of Path B below spell out these requirements.
+
+\subsection{Products, nonlinear operations, and tightening}
+\label{sec:calculus}
+
+Both pathways use the exact Leibniz identity to form product records:
+\begin{align}
+ I_{j,m}(FV)&=\sum_{r=0}^{m}\binom mr
+ I_{j,r}(F)I_{j,m-r}(V),\label{eq:local-product}\\
+ C_m^{\mathrm{seed}}(FV)&=\sum_{r=0}^{m}\binom mr
+ C_r(F)C_{m-r}(V).
+ \label{eq:global-product}
+\end{align}
+The first line uses signed interval arithmetic; the second is a
+nonnegative upper bound. Square roots and reciprocals use composition
+formulas on intervals separated from their singularities. The denominator
+and quotient identities in Section~\ref{sec:local-capillary} give explicit
+bounds for their higher derivatives.
+
+A record also permits downward tightening. Define
+$V_m(F)=\max_j U_{j,m}(F)$. The fundamental theorem of calculus on a cell
+implies
+\begin{equation}
+ \norm{F^{(m)}}\leq V_m(F)+hC_{m+1}(F).
+ \label{eq:tightening-proof}
+\end{equation}
+For an order-$q$ record, retain $C_{q+1}$ and update successively
+\begin{equation}
+ C_m(F)\leftarrow\min\{C_m(F),\,V_m(F)+hC_{m+1}(F)\},
+ \qquad m=q,q-1,\ldots,0.
+ \label{eq:tightening}
+\end{equation}
+Each candidate is rounded upward, and the already tightened next-order
+bound is used. The pass leaves the local intervals and top global bound
+unchanged. It can be useful when the improved bounds feed a later product,
+composition, or aliasing correction.
+
+The four estimates now follow in the order
+\begin{equation}
+ yH[y_u]\quad\longrightarrow\quad H[yy_u]\quad\longrightarrow\quad
+ \partial_u(y_u/D)\quad\longrightarrow\quad H[\partial_uG].
+\end{equation}
+The first uses Path A. The second uses the sampled transform in the
+implemented route. Both capillary terms use nonlinear interval Taylor
+data; only the last requires a further sampled Hilbert transform.
+
+\section{First term: the Path-A product \texorpdfstring{$yH[y_u]$}{yH[yu]}}
+\label{sec:product}
+
+\subsection{Constructing the local product record}
+
+Set $P=y\HH$. Both factors are explicit finite cosine polynomials, and
+$P$ has degree at most $2N$. Path A gives $\HH$ before multiplication
+by $y$; no sampled Hilbert transform or aliasing correction is needed for
+this term. No projection of the product back to degree $N$ is performed.
+
+For $m\geq1$, the local derivatives of $y$ are enclosed by evaluating
+\begin{equation}
+ y^{(m)}(u_j)=\sum_{k=1}^{N}k^ma_k
+ \cos\!\left(ku_j+\frac{m\pi}{2}\right).
+\end{equation}
+For $m\geq0$, the corresponding formula for the other factor is
+\begin{equation}
+ \HH^{(m)}(u_j)=\sum_{k=1}^{N}k^{m+1}a_k
+ \cos\!\left(ku_j+\frac{m\pi}{2}\right).
+\end{equation}
+The zeroth derivative of $y$ includes $a_0/2$ as in \eqref{eq:candidate}.
+Using these two records, form
+\begin{equation}
+ \boxed{I_{j,m}(P)=\sum_{r=0}^{m}\binom mr
+ I_{j,r}(y)I_{j,m-r}(\HH),\qquad 0\leq m\leq M.}
+ \label{eq:P-local}
+\end{equation}
+For example,
+\begin{align}
+ P'&=y'\HH+y\HH',\\
+ P''&=y''\HH+2y'\HH'+y\HH''.
+\end{align}
+The exact Leibniz identity proves that each interval contains the required
+derivative. Interval dependencies can enlarge an enclosure, but they do
+not invalidate it.
+
+\subsection{The remainder derivative and the whole-cell enclosure}
+
+The coefficient bounds in \eqref{eq:y-bounds}--\eqref{eq:A-Hy-bounds}
+give the global remainder constant
+\begin{equation}
+ \boxed{C_{M+1}(P)=\sum_{r=0}^{M+1}\binom{M+1}{r} C_r(y)C_{M+1-r}(\HH).}
+ \label{eq:P-remainder-bound}
+\end{equation}
+It controls $P^{(M+1)}$ at every point, including between nodes. A maximum
+of sampled derivatives of order $M+1$ alone would not supply this statement.
+There is no need for a local derivative column of order $M+1$ in the
+final order-$M$ product record.
+
+For $u=u_j+t$ with $0\leq t\leq h$, Taylor's formula gives
+\begin{equation}
+ P(u_j+t)=\sum_{m=0}^{M}\frac{P^{(m)}(u_j)t^m}{m!}
+ +\frac{1}{M!}\int_0^t(t-s)^MP^{(M+1)}(u_j+s)\,ds.
+\end{equation}
+The remainder has absolute value at most $C_{M+1}(P)t^{M+1}/(M+1)!$. Hence
+\begin{equation}
+ \boxed{P(u_j+t)\in
+ \sum_{m=0}^{M} I_{j,m}(P)\frac{t^m}{m!}
+ +\left[-\frac{C_{M+1}(P)t^{M+1}}{(M+1)!},\frac{C_{M+1}(P)t^{M+1}}{(M+1)!}\right].}
+ \label{eq:P-cell}
+\end{equation}
+In particular,
+\begin{equation}
+ \norm{P}\leq\max_j\left\{
+ \sum_{m=0}^{M}U_{j,m}(P)\frac{h^m}{m!}
+ +C_{M+1}(P)\frac{h^{M+1}}{(M+1)!}\right\}.
+ \label{eq:P-bound}
+\end{equation}
+This illustrates the grid-to-continuum argument. In residual assembly,
+however, we retain $I_{j,m}(P)$ and insert it with its minus sign; we do
+not substitute the separate norm bound \eqref{eq:P-bound}.
+
+The product's downward tightening pass can improve $C_0(P),\ldots,C_M(P)$,
+but it changes neither $I_{j,m}(P)$ nor $C_{M+1}(P)$. Since $P$ enters the
+residual additively, those tightened lower-order bounds do not sharpen its
+contribution to the final residual scan. This differs from tightening
+inside a chain of nonlinear operations, where improved bounds are consumed
+by subsequent estimates.
+
+\section{Second term: the sampled estimate of \texorpdfstring{$H[yy_u]$}{H[yyu]}}
+\label{sec:gravity-hilbert}
+
+\subsection{Forming the input before applying the transform}
+
+Let $F=yy_u=yA$. Construct its signed derivative intervals by
+\begin{equation}
+ I_{j,m}(F)=\sum_{r=0}^{m}\binom mr
+ I_{j,r}(y)I_{j,m-r}(A).
+ \label{eq:F-local}
+\end{equation}
+The corresponding global bounds are
+\begin{equation}
+ C_m(F)=\sum_{r=0}^{m}\binom mr C_r(y)C_{m-r}(A).
+ \label{eq:F-global}
+\end{equation}
+Equivalently, one may substitute $A^{(s)}=y^{(s+1)}$. This makes explicit
+that forming the product at a given derivative order requires one more
+derivative of $y$ in the $y_u$ factor. All these input bounds come from
+finite coefficient sums and, where used, valid tightening.
+
+\subsection{Transforming each derivative column}
+
+The implemented calculation sends $F$ through Path B. For $T=H[F]$ and
+$0\leq m\leq M$, equations \eqref{eq:discrete-H} and
+\eqref{eq:path-b-record} give
+\begin{equation}
+ \boxed{I_{j,m}(T)=\mathcal H_{j,m}(F)
+ +[-e_m(F),e_m(F)],\qquad
+ e_m(F)=\frac{4C_{m+p}(F)}{(p-1)(\Ngrid/2-1)^{p-1}}.}
+ \label{eq:T-local}
+\end{equation}
+The convolution uses the full grid column, so this is a global operation
+even though its result is a derivative interval at one node. Its two error
+sources are accounted for separately: the convolution balls enclose
+numerical rounding and input uncertainty, while $e_m(F)$ bounds the
+continuous-to-discrete difference.
+
+For the final Taylor remainder, \eqref{eq:H-global-derivatives} yields
+\begin{equation}
+ \boxed{C_{M+1}(T)=\frac{\pi^2}{3}C_{M+3}(F).}
+ \label{eq:T-remainder-bound}
+\end{equation}
+Thus the required input is not limited to the derivatives through order $M$ used in the
+local Taylor polynomial. For this global estimate, $F$ must have a valid
+bound on its derivative of order $M+3$. The aliasing correction for column $m$ additionally
+uses $C_{m+p}(F)$ for the chosen decay order $p$.
+
+\paragraph{Why use Path B for a finite polynomial?}
+The product $yy_u$ is itself a trigonometric polynomial of degree at most
+$2N$. It could therefore be transformed directly by Path A. Moreover, when
+$\Ngrid>4N$, its exact sampled transform has no frequency aliasing. The
+archived implementation nevertheless routes this term through the generic
+Path-B routine and its conservative correction. This is a choice of
+computational organization; an infinite Fourier tail is not intrinsic to
+this term. The final capillary transform has a different character,
+because its input is generally not a finite polynomial.
+
+\section{Third term: local capillarity and positivity of \texorpdfstring{$D$}{D}}
+\label{sec:local-capillary}
+
+The local capillary term is
+\begin{equation}
+ L=\partial_u\!\left(\frac{y_u}{D}\right)=Q',\qquad
+ Q=\frac{A}{D},\qquad D=\sqrt{A^2+B^2}.
+ \label{eq:L}
+\end{equation}
+Its difficulty is the nonlinear denominator. It uses the interval Taylor
+machinery associated with Path B, but requires no sampled Hilbert transform
+of its own. The construction starts by proving that division by $D$ is
+valid everywhere.
+
+\subsection{A positive lower bound without differentiating the denominator}
+\label{sec:D-positive}
+
+At each node, evaluate $A$, $B$, and $\sqrt{A^2+B^2}$ using outward
+rounding, and let $\underline D_j$ be a lower endpoint for $D(u_j)$.
+At this stage the square root is used only to evaluate the nonnegative
+Euclidean norm; no reciprocal or derivative of $D$ is taken. The interval
+squares can be restricted to their known nonnegative range.
+
+\begin{proposition}
+Let $L_A\geq\norm{A'}$ and $L_B\geq\norm{B'}$. Then
+\begin{equation}
+ D(u)\geq d_{\mathrm{Lip}}:=
+ \min_{0\leq j<\Ngrid}\underline D_j-h(L_A+L_B)
+ \quad\text{for all }u\in\mathbb R.
+ \label{eq:D-Lip}
+\end{equation}
+In particular, a strictly positive outward-rounded lower bound for
+$d_{\mathrm{Lip}}$ proves that $D$ is bounded away from zero.
+\end{proposition}
+\begin{proof}
+The reverse triangle inequality in $\mathbb R^2$ gives
+\begin{align}
  |D(u)-D(v)|
- \leq |A(u)-A(v)|+|B(u)-B(v)|.
-\end{equation}
-Consequently, if
-\(L_A\geq\|A'\|_\infty\) and \(L_B\geq\|B'\|_\infty\), then
+ &\leq\sqrt{(A(u)-A(v))^2+(B(u)-B(v))^2}\notag\\
+ &\leq|A(u)-A(v)|+|B(u)-B(v)|\notag\\
+ &\leq(L_A+L_B)|u-v|.
+ \label{eq:D-Lipschitz-proof}
+\end{align}
+For $u=u_j+t$, $0\leq t\leq h$, we obtain
+$D(u)\geq\underline D_j-h(L_A+L_B)$. Taking the minimum over the cells
+and using periodicity proves \eqref{eq:D-Lip}.
+\end{proof}
+
+The constants $L_A=C_1(A)$ and $L_B=C_1(B)$ are available from Path A.
+The argument does not assume the positivity it establishes. The numerical
+procedure must stop before reciprocal evaluation unless this initial
+lower bound is strictly positive.
+
+After positivity is established, $D$ is smooth. First construct its
+derivative bounds using $d_{\mathrm{Lip}}>0$ in the recurrences below.
+These already validated records then give the additional Taylor lower
+bound
 \begin{equation}
- d_{\rm Lip}:=
- \min_j\bigl(\underline D_j-h(L_A+L_B)\bigr)
- \leq\inf_uD(u).
- \label{eq:supp-cap-D-lipschitz}
+ d_{\mathrm{Tay}}=
+ \min_j\left\{\underline D_j-
+ \sum_{m=1}^{M}U_{j,m}(D)\frac{h^m}{m!}
+ -C_{M+1}(D)\frac{h^{M+1}}{(M+1)!}\right\}.
+ \label{eq:D-Taylor}
 \end{equation}
-This proof neither differentiates nor divides by \(D\), so it does not
-presuppose the positivity it establishes.  The computation stops unless
-outward-rounded arithmetic proves \(d_{\rm Lip}>0\).
+All subtractions in this expression are rounded in the lower-bound
+direction. Taking $d=\max\{d_{\mathrm{Lip}},d_{\mathrm{Tay}}\}$ retains a
+valid positive lower bound. Subsequent derivative and quotient bounds may
+then be recomputed using this improved $d$. The second estimate is a refinement, not a prerequisite for the first
+positivity proof.
 
-After positivity is known, Julia constructs Taylor data for \(D\) and
-obtains a second lower bound from the local derivatives and the Taylor
-remainder.  The implementation selects the ball having the larger rigorous
-lower endpoint.  Both candidates are valid lower bounds; selecting the
-larger one only sharpens the subsequent reciprocal estimates.
+\subsection{Derivative bounds for the denominator}
+\label{sec:D-derivatives}
 
-\subsection{\texorpdfstring{Higher derivatives of \(D\) and \(G\)}
-{Higher derivatives of D and G}}
-\label{sec:supp-cap-DG-derivatives}
-
-Direct Fa\`a di Bruno estimates for many derivatives of a square root and
-reciprocal can become unnecessarily large.  The verifier therefore also
-uses algebraic recurrences.  Let
-\(S=A^2+B^2=D^2\).  Differentiating \(D^2=S\) \(m\) times and isolating the
-two endpoint terms gives
+Set $S=A^2+B^2=D^2$. The product rule supplies local intervals for $S$ and
+seed bounds
 \begin{equation}
- 2D D^{(m)}
- =S^{(m)}-
- \sum_{r=1}^{m-1}\binom mrD^{(r)}D^{(m-r)}.
- \label{eq:supp-cap-D-recurrence}
+ C_m(S)=\sum_{r=0}^{m}\binom mr
+ \bigl(C_r(A)C_{m-r}(A)+C_r(B)C_{m-r}(B)\bigr).
+ \label{eq:S-global}
 \end{equation}
-If \(D\geq d>0\), then
+Since $S$ is a finite trigonometric polynomial, its coefficient
+representation gives another available bound.
+For $m\geq1$, differentiating $D^2=S$ gives
 \begin{equation}
- \|D^{(m)}\|_\infty
- \leq\frac{1}{2d}\left(
- \|S^{(m)}\|_\infty+
- \sum_{r=1}^{m-1}\binom mr
- \|D^{(r)}\|_\infty\|D^{(m-r)}\|_\infty
- \right).
- \label{eq:supp-cap-D-bound}
+ 2D D^{(m)}=S^{(m)}-
+ \sum_{r=1}^{m-1}\binom mr D^{(r)}D^{(m-r)}.
+ \label{eq:D-recurrence}
 \end{equation}
-Similarly, the identity \(GD=B\) gives
+The sum is empty when $m=1$. Starting with
+$C_0(D)=\sqrt{C_0(A)^2+C_0(B)^2}$, one may use
 \begin{equation}
- G^{(m)}D
- =B^{(m)}-
- \sum_{r=0}^{m-1}\binom mrG^{(r)}D^{(m-r)},
- \label{eq:supp-cap-G-recurrence}
+ \boxed{C_m(D)=\frac{1}{2d}\left(
+ C_m(S)+\sum_{r=1}^{m-1}\binom mr C_r(D)C_{m-r}(D)\right).}
+ \label{eq:D-bound}
 \end{equation}
-and therefore
+Indeed, divide \eqref{eq:D-recurrence} by $2D$, use $D\geq d>0$, and take
+supremum bounds. This proves the recurrence inductively.
+
+At a node, the same identity can be evaluated with signed intervals:
 \begin{equation}
- \|G^{(m)}\|_\infty
- \leq\frac{1}{d}\left(
- \|B^{(m)}\|_\infty+
- \sum_{r=0}^{m-1}\binom mr
- \|G^{(r)}\|_\infty\|D^{(m-r)}\|_\infty
- \right).
- \label{eq:supp-cap-G-bound}
+ I_{j,m}(D)=\frac{I_{j,m}(S)-
+ \sum_{r=1}^{m-1}\binom mr I_{j,r}(D)I_{j,m-r}(D)}{2I_{j,0}(D)}.
+ \label{eq:D-local}
 \end{equation}
-The quantities \(S\) and \(B\) are finite trigonometric polynomials, so
-their derivative bounds come directly from Eq.~\eqref{eq:supp-cap-trig-sup}.
-The recurrence avoids replacing \(D\) or \(G\) by a finite Fourier series.
-Julia compares these algebraic bounds with the valid composition-based
-bounds and uses the tighter outward endpoint where needed for the top
-derivatives in Path B.
+The zeroth interval is restricted using the certified lower bound $d$, so
+its denominator excludes zero. Equation \eqref{eq:D-local} gives an
+explicit recursive enclosure; the implementation also constructs local
+data through square-root composition formulas. Both constructions follow
+from the same exact identities and interval inclusion principle.
 
-\subsection{Residual assembly and passage from the grid to the torus}
-\label{sec:supp-cap-grid-to-continuum}
+\subsection{The quotient and the local capillary derivative}
+\label{sec:Q-derivatives}
 
-The local interval records are composed in the same order as
-Eq.~\eqref{eq:supp-cap-residual}: finite data for \(y\), \(y_u\), and
-\(H[y_u]\); Leibniz products; the Path-B transform of \(yy_u\); construction
-of \(D\), \(D^{-1}\), and \(G\); differentiation of \(y_u/D\) and \(G\);
-the Path-B transform of \(\partial_uG\); and the final linear combination.
-For every grid node and every \(0\leq m\leq M\), the result is an interval
+The identity $QD=A$ yields, for $m\geq1$,
 \begin{equation}
- R^{(m)}(u_j)\in I_{j,m}(R),
- \label{eq:supp-cap-R-grid}
+ Q^{(m)}D=A^{(m)}-
+ \sum_{r=0}^{m-1}\binom mr Q^{(r)}D^{(m-r)}.
+ \label{eq:Q-recurrence}
 \end{equation}
-together with
-\(C_{M+1}(R)\geq\|R^{(M+1)}\|_\infty\).
-
-For \(u=u_j+t\), \(0\leq t\leq h\), Taylor's theorem yields
+For example,
 \begin{equation}
- |R(u)|\leq
- \sum_{m=0}^{M}
- \frac{U_{j,m}(R)h^m}{m!}
- +\frac{C_{M+1}(R)h^{M+1}}{(M+1)!},
- \label{eq:supp-cap-cell-bound}
+ Q'=\frac{A'}{D}-\frac{AD'}{D^2}.
 \end{equation}
-where
-\(U_{j,m}(R)=\sup\{|x|:x\in I_{j,m}(R)\}\).  The outward-rounded maximum of
-the right-hand side over all cells is the certified \(\varepsilon_*\).  This
-is the step that converts finitely many computations into a statement about
-every point of the continuous periodic domain.  With \(M=\TaylorOrder\),
-the final remainder scales as \(h^7\).
+Begin with $I_{j,0}(Q)=I_{j,0}(A)/I_{j,0}(D)$ and use
+\begin{equation}
+ I_{j,m}(Q)=\frac{I_{j,m}(A)-
+ \sum_{r=0}^{m-1}\binom mr I_{j,r}(Q)I_{j,m-r}(D)}{I_{j,0}(D)}
+ \label{eq:Q-local}
+\end{equation}
+as an explicit signed enclosure. Corresponding global bounds are
+\begin{align}
+ C_0(Q)&=\frac{C_0(A)}{d},\notag\\
+ C_m(Q)&=\frac{1}{d}\left(
+ C_m(A)+\sum_{r=0}^{m-1}\binom mr C_r(Q)C_{m-r}(D)\right),
+ \qquad m\geq1.
+ \label{eq:Q-global}
+\end{align}
+Alternatively, the quotient record can be constructed as the product of
+$A$ with a reciprocal record for $D$. In the implementation, reciprocals
+and square roots are propagated by composition formulas; the algebraic
+identities expose why the resulting estimates require a positive $d$.
+Different rigorous constructions may have different widths.
 
-\subsection{Julia/Arb implementation}
-\label{sec:supp-cap-julia}
+Finally, differentiation shifts the record by one order:
+\begin{equation}
+ \boxed{I_{j,m}(L)=I_{j,m+1}(Q)\quad(0\leq m\leq M),
+ \qquad C_{M+1}(L)=C_{M+2}(Q).}
+ \label{eq:L-record}
+\end{equation}
+Thus the quotient must be constructed through local order $M+1$ and
+supplied with a global derivative bound of order $M+2$. The contribution to the
+residual is $+\beta I_{j,m}(L)$, with coefficient $|\beta|$ in its global
+bound on the derivative of order $M+1$.
 
-The package \texttt{BabenkoRigorous} implements the numerical proof.  Its
-principal files have the following roles.
+\section{Fourth term: the nonlocal capillary estimate}
+\label{sec:nonlocal-capillary}
+
+The final term is $K=H[G']$ with $G=B/D$. It combines the nonlinear
+quotient construction with a sampled Hilbert transform. It therefore
+requires every ingredient developed for the preceding terms.
+
+\subsection{Derivative data for the nonlinear input}
+
+Once $D\geq d>0$ is certified, $G$ is smooth and periodic. The identity
+$GD=B$ gives
+\begin{equation}
+ G^{(m)}D=B^{(m)}-
+ \sum_{r=0}^{m-1}\binom mr G^{(r)}D^{(m-r)},\qquad m\geq1.
+ \label{eq:G-recurrence}
+\end{equation}
+Start with $I_{j,0}(G)=I_{j,0}(B)/I_{j,0}(D)$. The signed interval version
+of \eqref{eq:G-recurrence} has exactly the form \eqref{eq:Q-local}, with
+$A,Q$ replaced by $B,G$. The corresponding global bounds are
+\begin{align}
+ C_0(G)&=\frac{C_0(B)}{d},\notag\\
+ C_m(G)&=\frac{1}{d}\left(
+ C_m(B)+\sum_{r=0}^{m-1}\binom mr C_r(G)C_{m-r}(D)\right),
+ \qquad m\geq1.
+ \label{eq:G-bound}
+\end{align}
+The source calculation compares algebraic $D/G$ derivative bounds with
+composition-based bounds and retains the tighter valid upper endpoints
+where needed. These estimates operate directly on the smooth functions;
+they do not replace $D$ or $G$ by a truncated Fourier series.
+
+Differentiation supplies the input to Path B:
+\begin{equation}
+ I_{j,m}(G')=I_{j,m+1}(G),\qquad C_m(G')=C_{m+1}(G).
+ \label{eq:Gprime}
+\end{equation}
+
+\subsection{The transform, aliasing correction, and remainder bound}
+
+Apply the certified convolution to each derivative column of $G'$. For
+$0\leq m\leq M$, the output record is
+\begin{equation}
+ \boxed{\begin{aligned}
+ I_{j,m}(K)&=\mathcal H_{j,m}(G')+[-e_m(G'),e_m(G')],\\
+ e_m(G')&=\frac{4C_{m+p+1}(G)}{(p-1)(\Ngrid/2-1)^{p-1}}.
+ \end{aligned}}
+ \label{eq:K-local}
+\end{equation}
+Here $\mathcal H_{j,m}(G')$ uses the samples of $G^{(m+1)}$. Since $G$
+generally has infinitely many Fourier modes, the correction controls a
+real truncation/aliasing issue rather than only providing a generic bound
+for a finite polynomial.
+
+For the final remainder we use
+\begin{equation}
+ K^{(M+1)}=H[G^{(M+2)}],\qquad
+ \boxed{C_{M+1}(K)=\frac{\pi^2}{3}C_{M+4}(G).}
+ \label{eq:K-remainder-bound}
+\end{equation}
+This shows why high derivatives of the quotient matter. An order-$M$
+residual record requires local derivatives of $G$ through order $M+1$,
+a global derivative bound of order $M+4$ for \eqref{eq:K-remainder-bound}, and any further
+bounds required by the selected aliasing decay orders. For example,
+$p=2$ would use $C_{m+3}(G)$ for the local corrections, through order
+$M+3$. This example describes the estimate's requirements; it does not fix
+the decay order of the archived run.
+
+The contribution to the residual is $-\beta I_{j,m}(K)$. Its global
+contribution to the derivative bound of order $M+1$ is $|\beta|C_{M+1}(K)$.
+
+\subsection{Derivative information required by the four terms}
+
+Table~\ref{tab:orders} collects the input needed for a final order-$M$
+record. Bounds used in aliasing corrections are additional to those in
+the last column and follow \eqref{eq:T-local} and \eqref{eq:K-local}.
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Term & Local input derivatives & Bound for derivative $M+1$\\
+\midrule
+$P=y\HH$ & $y,\HH$ through order $M$ &
+ $\displaystyle\sum_{r=0}^{M+1}\binom{M+1}{r} C_r(y)C_{M+1-r}(\HH)$\\[2ex]
+$T=H[yy_u]$ & $yy_u$ through order $M$ &
+ $\displaystyle\frac{\pi^2}{3}C_{M+3}(yy_u)$\\[2ex]
+$L=Q'$ & $Q$ through order $M+1$ & $C_{M+2}(Q)$\\[1ex]
+$K=H[G']$ & $G$ through order $M+1$ &
+ $\displaystyle\frac{\pi^2}{3}C_{M+4}(G)$\\[1ex]
+\bottomrule
+\end{tabular}
+\caption{Derivative bookkeeping for the four nonlinear residual terms.}
+\label{tab:orders}
+\end{table}
+
+\section{Assembling the residual and completing the proof}
+\label{sec:assembly}
+
+\subsection{Signed assembly at each node}
+
+The linear terms $\mu\HH-y$ already have Path-A records. For each node and
+$0\leq m\leq M$, form the interval
+\begin{equation}
+ \begin{split}
+ I_{j,m}(R)={}&\mu I_{j,m}(\HH)-I_{j,m}(y)
+ -I_{j,m}(P)-I_{j,m}(T)\\
+ &+\beta I_{j,m}(L)-\beta I_{j,m}(K).
+ \end{split}
+ \label{eq:R-local}
+\end{equation}
+All parameters in this expression are the exact stored values, enclosed
+as needed by interval arithmetic. Linearity and the previously proved
+inclusions give $R^{(m)}(u_j)\in I_{j,m}(R)$.
+
+Only after \eqref{eq:R-local} is formed do we take
+$U_{j,m}(R)=\sup\{|x|:x\in I_{j,m}(R)\}$. Individual terms may be much
+larger than the final residual; their signed combination is essential.
+Separately, a global remainder constant is obtained by the triangle
+inequality:
+\begin{equation}
+ \begin{split}
+ C_{M+1}(R)={}&|\mu|C_{M+1}(\HH)+C_{M+1}(y)+C_{M+1}(P)+C_{M+1}(T)\\
+ &+|\beta|\bigl(C_{M+1}(L)+C_{M+1}(K)\bigr).
+ \end{split}
+ \label{eq:R-remainder-bound}
+\end{equation}
+This remainder bound need not preserve cancellation, because it is
+multiplied by the small factor $h^{M+1}/(M+1)!$ in the final estimate.
+
+\subsection{From the finite grid to every real argument}
+
+For $u=u_j+t$ with $0\leq t\leq h$, Taylor's theorem and
+\eqref{eq:R-remainder-bound} imply
+\begin{equation}
+ |R(u)|\leq\sum_{m=0}^{M}U_{j,m}(R)\frac{h^m}{m!}
+ +C_{M+1}(R)\frac{h^{M+1}}{(M+1)!}.
+ \label{eq:R-cell}
+\end{equation}
+Every point of one period belongs to a cell, so the outward-rounded
+maximum provides the certificate
+\begin{equation}
+ \boxed{\norm{R(y_N)}\leq\varepsilon_*:=
+ \max_{0\leq j<\Ngrid}\left\{
+ \sum_{m=0}^{M}U_{j,m}(R)\frac{h^m}{m!}
+ +C_{M+1}(R)\frac{h^{M+1}}{(M+1)!}\right\}.}
+ \label{eq:R-global}
+\end{equation}
+Periodicity extends the conclusion to all $u\in\mathbb R$. Together with
+the positive lower bound from Section~\ref{sec:D-positive}, this completes
+the mathematical implication from validated interval records and global
+bounds to the two continuum inequalities.
+
+The cell width in \eqref{eq:R-global} is $h=2\pi/\Ngrid$, not $h/2$.
+For fixed $C_{M+1}(R)$, the remainder factor scales as $\Ngrid^{-(M+1)}$. This
+statement concerns the remainder, not the full numerical bound, whose
+other contributions include local interval widths and aliasing allowances.
+
+\section{Numerical choices and the reported certificate}
+\label{sec:numerics}
+
+The archived calculation uses
+\begin{equation}
+ N=150,\qquad\Ngrid=2{,}000{,}000,\qquad M=6,\qquad
+ p_{\mathrm{Arb}}=128\text{ bits},
+\end{equation}
+with grid shards of $1024$ points. The parameter displays are
+\begin{equation}
+ \mu\approx1.3660618372350841,\qquad\beta\approx0.248004.
+ \label{eq:parameters}
+\end{equation}
+For this choice $M=6$, the final Taylor remainder has order $7$. The
+transform of $yy_u$ uses a global derivative bound of order $9$ for its
+remainder estimate; the local capillary quotient needs order $8$, and the
+nonlocal capillary quotient $G$ needs order $10$. These are the numerical
+instances of $M+3$, $M+2$, and $M+4$, respectively, in the preceding
+sections. The certified result is
+\begin{equation}
+ \boxed{D(u)\geq0.3446588,\qquad
+ |R(y_{150})(u)|\leq1.78\times10^{-13}
+ \quad\text{for every }u\in\mathbb R.}
+ \label{eq:result}
+\end{equation}
+Here $p_{\mathrm{Arb}}$ is the
+arithmetic precision and is distinct from the Fourier-decay order $p$
+in the aliasing estimate.
+The reported output of the supremum-bound computation is a ball $B_R$
+with decimal displays
+\begin{align}
+ \operatorname{mid}(B_R)&\approx1.9928311263803702\times10^{-14},\\
+ \operatorname{rad}(B_R)&\approx1.5799937398052128\times10^{-13},\\
+ \inf B_R&\approx-1.3807106271671758\times10^{-13},\\
+ \sup B_R&\approx1.7792768524432498\times10^{-13}.
+ \label{eq:reported-ball}
+\end{align}
+This is a ball returned by the bound computation, not an enclosure of the
+range of the signed function $R$. The rigorous conclusion uses its exact
+outward upper endpoint, recorded in Appendix~\ref{sec:certificate}; the
+midpoint and radius are not separate estimates for distinct error sources.
+In particular, the negative lower endpoint has no bearing on the upper
+bound for $\norm{R}$.
+
+The denominator endpoint is approximately
+$0.34465883518530396$. Exact rational comparisons give the outward-safe
+bounds in \eqref{eq:result}. No individual numerical supremum bound for
+$P$, $T$, $L$, or $K$ is inferred from the final residual certificate.
+
+The certified total residual is $1.78\times10^{-13}$. Any use of the
+phrase ``near machine precision'' should be read with this explicit number:
+IEEE double precision has machine epsilon $2^{-52}\approx2.22\times10^{-16}$,
+whereas the verifier uses $128$-bit ball arithmetic. These are different
+quantities. The verification precision controls arithmetic enclosures;
+it does not by itself determine the residual of the fixed candidate or
+remove the Taylor and aliasing allowances.
+
+\appendix
+\section{Implementation and reproducibility}
+\label{sec:implementation}
+
+\subsection{Correspondence with the Julia/Arb calculation}
+
+The numerical package is \code{BabenkoRigorous}. The mathematical
+construction above corresponds to the following components, as described
+in the supplied implementation account.
 \begin{description}
- \item[\texttt{FourierSeries.jl}.]
- Defines the finite \texttt{TrigPoly} representation and the Path-A
- operations: evaluation, differentiation, Hilbert transform,
- multiplication, and coefficient-based supremum bounds.
-
- \item[\texttt{TaylorSeries.jl}.]
- Defines local derivative matrices and global derivative-bound vectors;
- implements Taylor supremum and infimum scans, Leibniz products,
- reciprocal and square-root composition, downward bound tightening,
- denominator positivity, and the algebraic \(D/G\) recurrences.
-
- \item[\texttt{GDerivatives.jl}.]
- Constructs the Taylor representation of
- \(G=(1+H[y_u])/D\) from the certified denominator and reciprocal.
-
- \item[\texttt{FFTHilbert.jl}.]
- Implements Path B by Arb complex-polynomial convolution with the cotangent
- kernel, adds Eq.~\eqref{eq:supp-cap-aliasing} to each output ball, and lifts
- the transform through all derivative levels using
- Eq.~\eqref{eq:supp-cap-H-commutes} and the global bound
- Eq.~\eqref{eq:supp-cap-H-tail}.
-
- \item[\texttt{ResidualBound.jl}.]
- Assembles the complete gravity--capillary residual and applies the final
- Taylor scan.  In the implemented route, \(H[yy_u]\) and
- \(H[\partial_uG]\) both pass through \texttt{fft\_hilbert\_series}; only the
- latter intrinsically requires the non-polynomial pathway.
-
- \item[\texttt{ShardStore.jl} and \texttt{Sharded.jl}.]
- Reorganize the same computation into exact on-disk shards so that a large
- grid does not require all Taylor matrices to be resident simultaneously.
-
- \item[\texttt{Certificate.jl}.]
- Converts binary inputs and outward endpoints to exact rational literals and
- emits the generated Lean data module.  The current formatter emits no
- axioms; the two numerical anchors live in a separate certificate-specific
- Lean module.
+ \item[\code{FourierSeries.jl}.]
+ Finite trigonometric representations, differentiation, Path-A Hilbert
+ transforms, multiplication, evaluation, and coefficient-based global bounds.
+ \item[\code{TaylorSeries.jl}.]
+ Local derivative intervals and global bounds, Leibniz products,
+ reciprocal and square-root composition, tightening, denominator positivity,
+ and algebraic bounds for derivatives of $D$ and $G$.
+ \item[\code{GDerivatives.jl}.]
+ Construction of the capillary function $G=(1+H[y_u])/D$ from the
+ certified denominator and reciprocal data.
+ \item[\code{FFTHilbert.jl}.]
+ Certified cotangent-kernel convolution, the analytic aliasing allowance,
+ derivative commutation, and the global Hilbert bound.
+ \item[\code{ResidualBound.jl}.]
+ Assembly of the four nonlinear terms with the linear terms, followed by
+ the Taylor scan in \eqref{eq:R-global}. Both $H[yy_u]$ and $H[G']$ pass
+ through \code{fft\_hilbert\_series} in the implemented route.
+ \item[\code{ShardStore.jl} and \code{Sharded.jl}.]
+ Storage and processing of the large grid in exact interval shards.
+ \item[\code{Certificate.jl}.]
+ Export of the stored inputs and outward endpoints as exact rational
+ literals in a generated Lean data module.
 \end{description}
 
-\paragraph{Verifier order.}
-The production verifier follows the order below.  This order is useful for
-audit because every later division or Hilbert transform consumes bounds
-created earlier in the list.
-\begin{enumerate}
- \item Read the \CandidateCount{} stored coefficients and construct
- \texttt{TrigPoly} objects for \(y\), \(y_u\), and \(H[y_u]\).
- \item Convert the finite series into Taylor records on the
- \(N_{\rm grid}\)-point grid, retaining enough derivative orders to support
- the final \(M=\TaylorOrder\) Taylor scan.
- \item Form the polynomial products \(yH[y_u]\) and \(yy_u\) by the Leibniz
- rule, and route \(yy_u\) through the certified sampled Hilbert transform.
- \item Prove a positive lower bound for
- \(D=\sqrt{y_u^2+(1+H[y_u])^2}\) before any reciprocal is evaluated.
- \item Build \(D^{-1}\), \(G=(1+H[y_u])/D\), \(\partial_u(y_u/D)\), and
- \(\partial_uG\) as Taylor records with outward-rounded derivative bounds.
- \item Apply the certified sampled Hilbert transform to \(\partial_uG\),
- using the supplied high-derivative bounds to add the aliasing radius and
- the Fourier-tail derivative bounds.
- \item Assemble the residual record and scan all cells with
- Eq.~\eqref{eq:supp-cap-cell-bound}; write the residual ball, the
- denominator lower ball, and the generated certificate.
-\end{enumerate}
+For example, the local product in Section~\ref{sec:product} is built from
+\code{yu = deriv(y)}, \code{Hyu = hilbert(yu)}, and the multiplication
+of the corresponding Taylor records. The local entries
+\code{derivs[j,m+1]} store raw derivative intervals; the global entries
+\code{sup\_bounds[m+1]} store bound expressions. Julia uses one-based
+array indices, whereas the grid in \eqref{eq:grid} is indexed from zero.
+The mathematics is unchanged by that indexing choice.
 
-Most local arithmetic operations are ordinary point operations lifted to
-Arb balls, but the proof also depends on the explicitly programmed analytic
-corrections in Eqs.~\eqref{eq:supp-cap-aliasing},
-\eqref{eq:supp-cap-tightening}, \eqref{eq:supp-cap-D-lipschitz}, and
-\eqref{eq:supp-cap-cell-bound}.  Arb automatically encloses numerical
-rounding; it does not invent these mathematical bounds.
+The quotient recurrences displayed in the main text give explicit
+mathematical enclosure formulas. The source account describes local
+square-root and reciprocal propagation by Fa\`a di Bruno composition
+formulas and supplementary algebraic bounds for high derivatives of
+$D$ and $G$. Equivalent valid constructions need not produce identical
+interval widths. The archived numerical endpoints refer to the
+implemented construction, including its tightening and sharding choices.
 
-\subsection{Memory-sharded computation}
-\label{sec:supp-cap-sharding}
+\subsection{Sharding the two-million-point grid}
 
-At \(N_{\rm grid}=\VerificationGrid\), storing every intermediate matrix at
-once is unnecessarily expensive.  The sharded implementation exploits the
-structure of the calculation:
-\begin{enumerate}
- \item Compute coefficient-level derivative bounds once from the finite
- trigonometric data.
- \item Pointwise nonlinear recurrences and min/max reductions are streamed
- over contiguous grid shards.
- \item Each global Hilbert transform is processed one derivative column at a
- time.  Exact Arb column slices are stored on disk.
- \item The final residual is reassembled shard by shard and the Taylor-cell
- maximum is reduced in ascending grid order.
-\end{enumerate}
-Intermediate balls are serialized with Arb's exact dump/load representation,
-including mantissa, exponent, and radius; decimal text is not used for this
-round trip.  The reduction order matches the monolithic loops, and repository
-tests compare the sharded and monolithic paths on smaller grids.  Sharding
-therefore changes memory use and scheduling, not the mathematical enclosure.
+The sharded schedule computes coefficient bounds once, streams local
+nonlinear operations over contiguous blocks, and processes each global
+Hilbert transform one derivative column at a time. The final residual is
+then reassembled shard by shard. Grid maxima used in tightening are merged
+over the complete grid; a maximum from a single shard does not bound the
+function on a full period.
 
-The successful two-million-point calculation used shards of 1024 points.
-The first stage ran on eight workers with four Julia threads per worker; the
-main transform and final stages used eight threads.  The stages consisted of
-parallel pointwise reductions, merging of the worker states,
-derivative-by-derivative certified convolutions, and a final sharded residual
-scan.  Separate operating-system processes between major stages released the
-memory associated with completed stages and left exact state dumps for
-reproducibility.
+Intermediate Arb balls are saved using exact dump/load representations
+of their mantissas, exponents, and radii. Decimal text is not used for this
+round trip. The source account reports that the reduction order matches
+the monolithic calculation and that smaller-grid tests compare the two
+routes. The archived run used eight workers with four Julia threads each
+for its initial stage and eight threads for the main transform and final
+stages. Separate processes between major stages released memory and left
+exact state dumps for subsequent stages.
 
-\subsection{Lean definitions and reusable analytic library}
-\label{sec:supp-cap-lean-library}
+\subsection{Archived artifacts}
 
-The Lean project \texttt{WaveCAP} defines the mathematical operator rather
-than treating it as an uninterpreted symbol.  For a real function \(f\),
-\texttt{Definitions.lean} sets
-\begin{equation}
- H[f](u)=\operatorname{Re}\sum_{n\in\mathbb Z}
- \bigl(-i\,\operatorname{sgn}(n)\bigr)\widehat f_n e^{inu},
- \label{eq:supp-cap-lean-H}
-\end{equation}
-with multiplier zero at \(n=0\).  The same file defines the finite profile,
-its derivative, the explicit \(H_y\), \(D\), \(G\), and \(R\) from
-Eq.~\eqref{eq:supp-cap-residual}.  The coefficient type
-\(\operatorname{Fin}(N)\to\mathbb R\) makes every profile sum finite.
-
-The reusable formal library mirrors the proof architecture:
-\begin{itemize}
-\raggedright
- \item \textbf{Hilbert transform.}
- \texttt{HilbertOnTrigPoly.lean} proves Path A and
- \(H[y_u]=H_y\).  \texttt{FourierTailHilbert.lean} proves the
- \(\pi^2/3\) estimate and mode facts.
- \texttt{HilbertCommutesDeriv.lean} proves derivative commutation.
-
- \item \textbf{Aliasing and Path B.}
- \texttt{AliasingErrorBound.lean} proves the sampled DFT aliasing theorem and
- the cot-kernel equivalence.  The file
- \texttt{FFTHilbert}\allowbreak\texttt{Correctness.lean} states the
- correctness contract for the interval transform and its Taylor-series lift.
-
- \item \textbf{Derivative calculus.}
- \texttt{LeibnizBound.lean} and \texttt{FaaDiBrunoBound.lean} prove the
- product and composition bounds used by Julia.
-
- \item \textbf{Taylor data.}
- \texttt{TaylorRemainder.lean} and
- \texttt{GridToSupNormTaylor.lean} prove the local remainder and the
- grid-to-continuum theorem.  The file
- \texttt{TaylorSeries}\allowbreak\texttt{Correctness.lean} defines
- the semantic invariant \texttt{IsTaylorSeriesOf} and proves that the
- arithmetic operations preserve it.  \texttt{SeriesCorrectness.lean} covers
- the square-root and reciprocal recurrences, while
- \texttt{TightenSupBounds}\allowbreak\texttt{Lemma.lean} justifies the
- downward tightening pass.
-
- \item \textbf{Denominator and capillary chain.}
- \texttt{DminBound}\allowbreak\texttt{Correctness.lean} formalizes the
- positivity calculation, and \texttt{TightDGSupBounds.lean} proves
- Eqs.~\eqref{eq:supp-cap-D-bound}--\eqref{eq:supp-cap-G-bound}.
-
- \item \textbf{Residual assembly.}
- \texttt{ResidualAssembly}\allowbreak\texttt{Correctness.lean} composes the
- Path-A and Path-B records into the full residual, proves periodicity, and
- proves the general extension of a one-period bound to every real argument.
-\end{itemize}
-These are generic theorems about the mathematics and data-structure
-contracts of the pipeline.  They are useful independently of the particular
-numerical profile.
-
-\subsection{Exact certificate data and convention alignment}
-\label{sec:supp-cap-exact-data}
-
-The generated module
+The source account identifies the run directory as
 \begin{center}
-\texttt{CertificatePhase4ScalarN150}\allowbreak
-\texttt{Phase420260827HalfDC.lean}
+\small\code{BabenkoRigorous/results/}\allowbreak
+\code{phase4\_scalar\_n150\_20260827\_2m\_20260829}.
 \end{center}
-contains \CandidateCount{} exact rational coefficients and exact rational
-representations of \(\mu\), \(\beta\), \(N_{\rm grid}\), \(M\), the
-residual upper endpoint, and the denominator lower endpoint.  In particular,
+It contains the run description, logs, coefficient data, Arb endpoint
+dumps, scripts, and generated Lean certificate. The account reports a
+successful final stage, byte-for-byte agreement between the generated
+and installed half-DC certificate, and checks of the certificate-specific
+Lean modules with the pinned Lean/Mathlib version \code{v4.29.0-rc6}.
+The reported SHA-256 identifiers are preserved here for locating the
+corresponding artifacts.
+
+\noindent Run archive:
+\begin{quote}\footnotesize\ttfamily
+4d65357a64a0ccfbf0ed67f8dd0e1970f0ceb549a8cbf647d8490e4ac48abb07
+\end{quote}
+\noindent Half-DC alignment archive:
+\begin{quote}\footnotesize\ttfamily
+ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43
+\end{quote}
+\noindent Installed generated half-DC Lean certificate:
+\begin{quote}\footnotesize\ttfamily
+2190a52f3520ab0b15683eab592ee1105797d737a22f2e24a869130f5a431ed2
+\end{quote}
+
+\section{Exact data and the Lean certificate boundary}
+\label{sec:certificate}
+
+\subsection{Exact parameters and outward endpoints}
+
+The generated certificate stores $151$ exact rational coefficients,
+the exact parameters, and the grid and Taylor settings. The parameters are
+\begin{equation}
+ \mu_{\mathrm{cert}}=\frac{1538048895284245}{1125899906842624},\qquad
+ \beta_{\mathrm{cert}}=\frac{2233821443972785}{9007199254740992}.
+ \label{eq:exact-parameters}
+\end{equation}
+The certificate endpoints are
 \begin{align}
- \mu_{\rm cert}
- &=\frac{1538048895284245}{1125899906842624},\\
- \beta_{\rm cert}
- &=\frac{2233821443972785}{9007199254740992},
- \label{eq:supp-cap-exact-parameters}
-\end{align}
-and
-\begin{align}
- \varepsilon_{0,\rm cert}
+ \varepsilon_{0,\mathrm{cert}}
  &=\frac{66570650447636094343693612891855023841}
  {374144419156711147060143317175368453031918731001856},
- \label{eq:supp-cap-exact-eps}\\
- D_{\rm lower,cert}
+ \label{eq:exact-epsilon}\\
+ D_{\mathrm{lower,cert}}
  &=\frac{30024018999569627600479976468787845960585}
  {87112285931760246646623899502532662132736}.
- \label{eq:supp-cap-exact-D}
+ \label{eq:exact-D}
 \end{align}
-Thus moving the certificate into Lean introduces no decimal-rounding step.
-
-Julia and Lean use different storage conventions for the constant cosine
-mode.  Julia evaluates the first source entry as \(a_0/2\), while the generic
-Lean function \texttt{y} uses its zeroth stored entry directly.  The
-certificate therefore stores
+These exact values satisfy
 \begin{equation}
- \widehat a_0=a_0/2,
- \qquad
- \widehat a_k=a_k\quad(k\geq1).
- \label{eq:supp-cap-half-DC}
+ \varepsilon_{0,\mathrm{cert}}<\frac{178}{10^{15}}
+ =1.78\times10^{-13},\qquad
+ D_{\mathrm{lower,cert}}>\frac{3446588}{10^7}=0.3446588.
+ \label{eq:rational-comparisons}
 \end{equation}
-The generic module \texttt{HalfDCConvention.lean} proves the two coefficient
-cases and proves that this adapter preserves \(y_u\), \(H_y\), \(D\), and
-\(G\).  The certificate-specific theorem checks the exact zeroth-entry
-identity.  The source vector is not also encoded as a second complete Lean
-vector, so the present formal theorem does not compare two named
-151-component vectors; the generated certificate already contains the
-converted vector.
+The shortened decimals in \eqref{eq:parameters} and
+\eqref{eq:reported-ball} are displays, not replacements for these exact
+rational definitions.
 
-The audit module \texttt{PaperAudit.lean} separately proves
-the sign identity in Eq.~\eqref{eq:supp-cap-sign} and the corresponding
-equality of absolute values.  Both the half-DC identities and the residual
-sign bridge are independent of the numerical trust anchors.
+\subsection{Aligning the constant mode and the residual sign}
 
-\subsection{The numerical trust boundary in Lean}
-\label{sec:supp-cap-trust-boundary}
+Julia evaluates the first cosine coefficient as $a_0/2$. The generic Lean
+profile uses its zeroth stored entry directly. The exported vector is
+therefore
+\begin{equation}
+ \widetilde a_0=a_0/2,\qquad\widetilde a_k=a_k\quad(1\leq k\leq N).
+ \label{eq:half-DC}
+\end{equation}
+The formal convention adapter makes the two profile definitions agree and
+preserves the derivatives and auxiliary functions. The source account
+reports a certificate-specific check of the zeroth-entry identity; a
+second complete copy of the unconverted coefficient vector is not encoded
+in the theorem. The generated vector is already in the Lean convention.
 
-The present certificate does not serialize the millions of local derivative
-balls, all global derivative vectors, or the intermediate convolution
-enclosures needed for Lean to reconstruct the two-million-point run.  The
-certificate-specific numerical interface therefore consists of exactly two
-assumptions recording the final Arb conclusions:
+The sign bridge is $R=-\mathcal B$ as in \eqref{eq:residual}, hence
+$|R|=|\mathcal B|$. The convention and sign identities are independent of
+the numerical denominator and residual assumptions below.
+
+\subsection{Reusable analytic results}
+
+The Lean project \code{WaveCAP} defines the periodic Hilbert transform by
+its Fourier multiplier $-i\operatorname{sgn}(k)$, with zero multiplier at
+$k=0$, and defines the finite profile, $D$, $G$, and the residual.
+Its reusable library follows the same proof architecture:
+\begin{itemize}
+ \item \code{HilbertOnTrigPoly.lean} establishes the finite-mode rules
+ and the equality between the abstract transform of $y_u$ and $\HH$.
+ \item \code{AliasingErrorBound.lean},
+ \code{FourierTailHilbert.lean},
+ \code{HilbertCommutesDeriv.lean}, and
+ \code{FFTHilbertCorrectness.lean} supply the sampled-transform,
+ decay, tail, commutation, and correctness results used in Path B.
+ \item \code{LeibnizBound.lean}, \code{FaaDiBrunoBound.lean},
+ \code{TaylorSeriesCorrectness.lean}, and \code{SeriesCorrectness.lean}
+ cover derivative bounds and preservation of the Taylor-record invariant.
+ \item \code{DminBoundCorrectness.lean} and
+ \code{TightDGSupBounds.lean} cover positivity and the capillary
+ derivative bounds.
+ \item \code{TightenSupBoundsLemma.lean},
+ \code{TaylorRemainder.lean}, \code{GridToSupNormTaylor.lean}, and
+ \code{ResidualAssemblyCorrectness.lean} justify tightening,
+ residual assembly, the continuum estimate, and periodic extension.
+\end{itemize}
+These are generic mathematical theorems and data-structure contracts.
+Their existence does not imply that the particular large numerical run
+has been reconstructed inside Lean.
+
+\subsection{The two numerical assumptions}
+\label{sec:trust}
+
+The current certificate does not serialize all local derivative matrices,
+global bound vectors, and intermediate convolution enclosures. Instead,
+the certificate-specific interface imports the final Arb conclusions as
+two explicit numerical assumptions. In mathematical form, they are
 \begin{align}
- \mathsf A_D:\quad&
- D_{\rm lower,cert}>0
+ \mathsf A_D:\quad& D_{\mathrm{lower,cert}}>0
  \quad\text{and}\quad
  \forall u\in\mathbb R,\quad
- D_{\rm lower,cert}\leq D(a_{\rm cert};u),
- \label{eq:supp-cap-anchor-D}\\
- \mathsf A_R:\quad&
- \mathsf A_D\Longrightarrow
+ D_{\mathrm{lower,cert}}\leq D(a_{\mathrm{cert}};u),
+ \label{eq:anchor-D}\\
+ \mathsf A_R:\quad&\mathsf A_D\Longrightarrow
  \forall u\in[0,2\pi],\quad
- |R(a_{\rm cert},\mu_{\rm cert},\beta_{\rm cert};u)|
- \leq\varepsilon_{0,\rm cert}.
- \label{eq:supp-cap-anchor-R}
+ |R(a_{\mathrm{cert}},\mu_{\mathrm{cert}},\beta_{\mathrm{cert}};u)|
+ \leq\varepsilon_{0,\mathrm{cert}}.
+ \label{eq:anchor-R}
 \end{align}
-Their Lean names are
+Here $a_{\mathrm{cert}}$ denotes the converted coefficient vector.
+The Lean names are
 \begin{center}
- \texttt{cert\_arb\_dmin\_bound},\qquad
- \texttt{cert\_arb\_sup\_bound\_le\_eps0}.
+ \code{cert\_arb\_dmin\_bound},\qquad
+ \code{cert\_arb\_sup\_bound\_le\_eps0}.
 \end{center}
-They are declared in
+The generated data module contains rational literals; the two assumptions
+are declared separately in the certificate-specific axiom module.
+
+From these assumptions Lean obtains the denominator bound, applies the
+residual estimate on one period, proves periodicity and extends the
+estimate to $\mathbb R$, checks \eqref{eq:rational-comparisons} by exact
+rational normalization, and transfers the result to $|\mathcal B|$.
+Thus the result is a computer-assisted residual certificate with a
+Lean-checked conclusion conditional on two externally computed numerical
+anchors. The numerical trust boundary remains the Julia/Arb calculation
+and its implementation of the analytic estimates.
+
+The source account reports that the residual theorem's axiom audit lists
+these two numerical anchors together with the standard Mathlib principles
+\code{propext}, \code{Classical.choice}, and \code{Quot.sound}. The
+denominator theorem uses only the denominator anchor. The convention and
+sign-alignment results use no certificate-specific numerical axioms.
+
+For locating the certificate-specific files, the generated data and axiom
+modules share the prefix
 \begin{center}
- \texttt{CertificatePhase4ScalarN150}\allowbreak
- \texttt{Phase420260827HalfDCAxioms.lean}.
+\small\code{CertificatePhase4ScalarN150}\allowbreak
+\code{Phase420260827HalfDC},
 \end{center}
-
-This distinction is important.  Lean proves the universal analytic
-ingredients used by the verifier, but the current certificate-facing theorem
-does not instantiate those generic results from serialized grid matrices.
-Instead, it imports Eqs.~\eqref{eq:supp-cap-anchor-D}--
-\eqref{eq:supp-cap-anchor-R} as the explicit numerical trust boundary.
-Accordingly, the result should be described as a machine-checked theorem
-with two externally computed Arb anchors, not as a replay of every interval
-operation inside Lean.
-
-From the two anchors Lean performs the remaining deductions:
-\begin{enumerate}
- \item It projects the global denominator lower bound from \(\mathsf A_D\).
- \item It applies \(\mathsf A_R\) on \([0,2\pi]\).
- \item It proves periodicity of the residual and extends the bound to all
- \(u\in\mathbb R\).
- \item It verifies by exact rational normalization that
- \(\varepsilon_{0,\rm cert}<178/10^{15}\) and
- \(3446588/10^7<D_{\rm lower,cert}\).
- \item It transfers the absolute residual theorem to the manuscript operator
- using Eq.~\eqref{eq:supp-cap-sign}.
-\end{enumerate}
-The corresponding public modules are
+with suffixes \code{.lean} and \code{Axioms.lean}, respectively. The
+public theorem module uses the prefix
 \begin{center}
- \texttt{MainPhase4ScalarN150}\allowbreak
- \texttt{Phase420260827HalfDC.lean},\\
- \texttt{PaperAudit.lean}.
+\small\code{MainPhase4ScalarN150}\allowbreak
+\code{Phase420260827HalfDC},
 \end{center}
-
-The axiom audit for the exact and decimal residual theorems reports the
-standard Mathlib principles \texttt{propext}, \texttt{Classical.choice}, and
-\texttt{Quot.sound}, together with precisely the two numerical anchors above.
-The denominator theorem uses only the first numerical anchor.  The half-DC
-and sign-alignment results use no certificate-specific numerical axioms.
-
-\subsection{Numerical result and interpretation of precision}
-\label{sec:supp-cap-result}
-
-The successful Crunchy2 computation used
-\begin{align}
- N&=\CandidateDegree,
- &N_{\rm grid}&=\VerificationGrid,\\
- M&=\TaylorOrder,
- &p_{\rm Arb}&=\WorkingPrecision\ \text{bits},
- \label{eq:supp-cap-run-parameters}
-\end{align}
-with shard size 1024.  The final Arb ball was reported as
-\begin{align}
- \operatorname{mid}(B_R)&=\ResidualMidpoint,\\
- \operatorname{rad}(B_R)&=\ResidualRadius,\\
- \inf B_R&=\ResidualLower,\\
- \sup B_R&=\ResidualUpper.
- \label{eq:supp-cap-final-ball}
-\end{align}
-Here \(B_R\) is the ball returned by the supremum-bound computation; it is
-not an enclosure of the range of \(R\), which explains why its lower endpoint
-may be negative.  The theorem uses the outward upper endpoint
-\(\ResidualUpper\), not the midpoint or radius separately.  The denominator
-calculation returned the outward lower endpoint
-\begin{equation}
- D_{\rm lower}=\DLower.
-\end{equation}
-The run log ends with \texttt{ALL\_STAGES\_COMPLETE}, and the final stage has
-zero exit status.
-
-The phrase ``near machine precision'' refers here to the practical accuracy
-floor of the double-precision candidate and the complete nonlinear residual,
-not to the rounding unit of the 128-bit Arb calculation.  IEEE double
-precision has machine epsilon \(2^{-52}\approx2.22\times10^{-16}\) and unit
-roundoff \(2^{-53}\approx1.11\times10^{-16}\).  Cancellation, derivative
-amplification, conditioning, and the storage of the candidate coefficients
-can raise the attainable residual above these raw constants.  The 128-bit
-Arb precision, roughly 38 decimal digits, makes arithmetic rounding in the
-verification negligible relative to the analytic Taylor and aliasing
-corrections; it does not force the final certificate radius to be
-\(10^{-38}\).
-
-\newpage
-\subsection{Reproducibility and file map}
-\label{sec:supp-cap-reproducibility}
-
-The paths and production commands in this section preserve the original
-research checkout and Crunchy2 environment. In the paper's publication
-repository, \texttt{BabenkoRigorous/} corresponds to \texttt{Julia/},
-\texttt{WaveCAP/WaveCAP/} corresponds to \texttt{Lean/WaveCAP/}, and
-\texttt{wave-cap/WaveCAP/} corresponds to \texttt{Lean/}. The repository
-README gives build and verification commands for the publication layout.
-
-\begin{samepage}
-The archived run directory
-\begin{center}
-\texttt{BabenkoRigorous/results/phase4\_scalar\_n150\_20260827\_2m\_20260829}
-\end{center}
-contains the run description and checksums for the raw logs, stage logs,
-coefficient file, Arb endpoint dumps, scripts, and generated Lean
-certificate.  The installed half-DC certificate was compared byte-for-byte
-with the generated artifact.  The dedicated Lean theorem and audit modules
-were checked directly with the pinned Lean and Mathlib version
-\texttt{v4.29.0-rc6}.
-\end{samepage}
-
-The principal archived artifacts have the following SHA-256 checksums:
-\begin{verbatim}
-4d65357a64a0ccfbf0ed67f8dd0e1970f0ceb549a8cbf647d8490e4ac48abb07
-ee8fe5db1ea3bbd6e37d0888fdadc00c9c9e1d6ce81cb9d46ae3e4db8ffcdf43
-\end{verbatim}
-for the run archive and the half-DC alignment archive, respectively.  The
-installed generated half-DC Lean certificate has SHA-256 checksum
-\begin{verbatim}
-2190a52f3520ab0b15683eab592ee1105797d737a22f2e24a869130f5a431ed2
-\end{verbatim}
-
-\paragraph{Crunchy2 execution table.}
-The following table is transcribed from the archived
-\texttt{/usr/bin/time -v} logs and from the stage summaries printed by
-\texttt{stage\_run\_phase4\_scalar\_n150\_20260827.jl}.  The eight
-\texttt{p1part} workers were launched concurrently, so their wall times
-should not be summed.  The total production wall time after warmup is
-approximately the slowest \texttt{p1part} worker plus the three serial
-stages.
-
-\begingroup
-\setlength{\tabcolsep}{3pt}
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.25\linewidth}>{\raggedright\arraybackslash}p{0.11\linewidth}>{\raggedright\arraybackslash}p{0.15\linewidth}>{\raggedright\arraybackslash}p{0.15\linewidth}>{\raggedright\arraybackslash}p{0.13\linewidth}@{}}
-\caption{Crunchy2 stage timing and memory for the certified two-million-point run.}
-\label{tab:supp-crunchy2-runtime}\\
-\toprule
-Log file & Threads & Wall time & Julia elapsed & Peak RSS \\
-\midrule
-\endfirsthead
-\toprule
-Log file & Threads & Wall time & Julia elapsed & Peak RSS \\
-\midrule
-\endhead
-\bottomrule
-\endfoot
-\path{p1part_1of8.log} & 4 & 1:57:25 & 6959.9 s & 5.019 GB \\
-\path{p1part_2of8.log} & 4 & 2:14:58 & 8007.8 s & 9.242 GB \\
-\path{p1part_3of8.log} & 4 & 1:56:25 & 6895.6 s & 4.972 GB \\
-\path{p1part_4of8.log} & 4 & 2:07:07 & 7541.7 s & 9.287 GB \\
-\path{p1part_5of8.log} & 4 & 2:13:04 & 7897.6 s & 9.324 GB \\
-\path{p1part_6of8.log} & 4 & 1:58:34 & 7032.1 s & 5.088 GB \\
-\path{p1part_7of8.log} & 4 & 2:09:00 & 7655.0 s & 9.267 GB \\
-\path{p1part_8of8.log} & 4 & 2:13:52 & 7944.0 s & 9.283 GB \\
-\path{p1merge.log} & 8 & 1:22.08 & 0.7 s & 0.481 GB \\
-\path{fft.log} & 8 & 21:33.92 & 1212.4 s & 5.149 GB \\
-\path{s3.log} & 8 & 11:49.78 & 628.2 s & 0.477 GB \\
-\end{longtable}
-\endgroup
-
-\newpage
-The final \texttt{s3} log reports
-\begin{verbatim}
-bound midpoint = +1.9928311263803702e-14
-bound radius   = 1.5799937398052128e-13
-bound interval = [-1.3807106271671758e-13, +1.7792768524432498e-13]
-bound ubound   = 1.7792768524432498e-13
-D_lower lbound = 3.4465883518530394e-01
-\end{verbatim}
-and the top-level run log ends with \texttt{ALL\_STAGES\_COMPLETE}.
-
-\paragraph{Production command.}
-On \texttt{crunchy2}, from the \texttt{BabenkoRigorous} directory, the
-archived run is reproduced by
-\begin{verbatim}
-WORK=/scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_work
-LOGDIR=/scratch/ms14479/phase4_scalar_n150_20260827_2m_retry_logs
-RUNTIME=apptainer
-SIF=/home/tb97/transit-cap-ccf/cap-ccf.sif
-BINDPATH=/scratch:/scratch
-WORKER_THREADS=4
-MAIN_THREADS=8
-scripts/p1_parallel_run_phase4_scalar_n150_20260827.sh \
-  "$WORK" 1024 2000000 8 "$LOGDIR"
-\end{verbatim}
-The first run writes the non-half-DC generated certificate and the two Arb
-dumps \path{staged_bound.arbdump} and
-\path{staged_dlower.arbdump}.  The half-DC Lean certificate used by the
-paper is then re-emitted from the existing dumps, without rerunning the
-two-million-point interval calculation, by
-\begin{verbatim}
-apptainer exec --bind /scratch:/scratch \
-  /home/tb97/transit-cap-ccf/cap-ccf.sif \
-  julia --startup-file=no --compiled-modules=no --project=. \
-  scripts/reemit_phase4_n150_half_dc_certificate.jl "$WORK"
-\end{verbatim}
-
-\paragraph{Lean verification commands.}
-After the generated half-DC certificate is installed in
-\path{WaveCAP/WaveCAP/}, the certificate-facing targets are checked by
-\begin{verbatim}
-cd wave-cap/WaveCAP
-lake build
-lake env lean WaveCAP/PaperTheorems.lean
-lake env lean WaveCAP/PaperAudit.lean
-\end{verbatim}
-The direct \texttt{lake env lean} calls are included because the dedicated
-half-DC headline and audit modules are not exercised by the default library
-root in the current repository layout.
-
-For readers following the implementation, the Julia source names below are
-relative to \texttt{BabenkoRigorous/}.  The Lean source names are relative
-to \texttt{WaveCAP/WaveCAP/}.
-\begin{itemize}
-\raggedright
- \item \textbf{Path A.}
- Julia: \texttt{src/FourierSeries.jl}.
- Lean: \texttt{Definitions.lean} and \texttt{HilbertOnTrigPoly.lean}.
-
- \item \textbf{Path B and the cot kernel.}
- Julia: \texttt{src/FFTHilbert.jl}.
- Lean: \texttt{AliasingErrorBound.lean},
- \texttt{FourierTailHilbert.lean}, and
- \texttt{FFTHilbertCorrectness.lean}.
-
- \item \textbf{Nonlinear Taylor data and denominator.}
- Julia: \texttt{src/TaylorSeries.jl} and
- \texttt{src/GDerivatives.jl}.
- Lean: \texttt{TaylorSeriesCorrectness.lean},
- \texttt{SeriesCorrectness.lean}, \texttt{DminBoundCorrectness.lean}, and
- \texttt{TightDGSupBounds.lean}.
-
- \item \textbf{Residual and continuum bound.}
- Julia: \texttt{src/ResidualBound.jl}.
- Lean: \texttt{TaylorRemainder.lean},
- \texttt{GridToSupNormTaylor.lean}, and
- \texttt{ResidualAssemblyCorrectness.lean}.
-
- \item \textbf{Large-grid organization.}
- Julia: \texttt{src/ShardStore.jl}, \texttt{src/Sharded.jl}, and
- \texttt{scripts/stage\_run\_phase4\_scalar\_n150\_20260827.jl}.
-
- \item \textbf{Certificate and theorem.}
- Julia: \texttt{src/Certificate.jl}.
- Lean: the generated half-DC certificate, its certificate-specific axiom
- module, the corresponding \texttt{Main} module, and
- \texttt{PaperAudit.lean}.
-\end{itemize}
-
-These components yield a reproducible continuum residual bound for the
-profile in Eq.~\eqref{eq:supp-cap-candidate}.  They state the
-mathematical pathways, numerical enclosures, formal definitions, and
-remaining numerical trust boundary separately.
-\endgroup
+and the audit module is \code{AuditPhase4ScalarN150HalfDC.lean}.
 
 \end{document}
