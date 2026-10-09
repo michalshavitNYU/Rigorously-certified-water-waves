@@ -51,16 +51,18 @@ fixed finite Fourier approximation to a traveling gravity--capillary wave.
 
 \subsection{The candidate and the statement being certified}
 
-The object of the proof is the explicit cosine polynomial
+The purpose of the computer-assisted calculation is to certify the accuracy
+of an explicit numerical traveling-wave profile. After the search and
+polishing stages, the profile is frozen as the finite cosine polynomial
 \begin{equation}
  y(u)=y_N(u)=\frac{a_0}{2}+\sum_{k=1}^{N}a_k\cos(ku),
- \qquad N\geq1.
  \label{eq:candidate}
 \end{equation}
-The stored binary floating-point coefficients are interpreted as exact
-dyadic numbers. Thus the verification concerns this fixed finite function.
-The neural-network search and subsequent polishing produce the finite
-polynomial that is then certified.
+for some fixed integer $N\geq1$, where the coefficients in
+Eq.~\eqref{eq:candidate} are fixed binary floating-point numbers.
+The verification treats their exact dyadic values as the definition of
+the candidate. The neural network is therefore a search tool,
+not part of the object appearing in the theorem.
 
 We use the $2\pi$-periodic Hilbert-transform convention
 \begin{equation}
@@ -86,9 +88,7 @@ quotients. With the sign convention of the manuscript, the residual is
  \end{split}
  \label{eq:residual}
 \end{equation}
-A prime denotes differentiation with respect to $u$. The term $P$
-multiplies $y$ by $H[y_u]$, while $T$ applies the Hilbert transform to
-the product $yy_u$.
+A prime denotes differentiation with respect to $u$.
 
 For the fixed stored parameters $\mu$ and $\beta$, the purpose of the
 calculation is to prove
@@ -100,8 +100,7 @@ calculation is to prove
 \end{equation}
 The numerical choices and resulting bounds for the proof run are collected
 in Section~\ref{sec:numerics}; their exact rational representations appear
-in Appendix~\ref{sec:certificate}. Since $R=-\mathcal B$, the same absolute
-bound applies to the manuscript residual $\mathcal B$.
+in Appendix~\ref{sec:certificate}.
 This is an accuracy statement for the supplied profile. A theorem asserting
 an exact nearby wave would additionally require an inverse estimate for
 the linearized operator and a suitable existence argument.
