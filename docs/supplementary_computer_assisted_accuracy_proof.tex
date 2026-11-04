@@ -18,12 +18,16 @@
 \newcommand{\Ngrid}{N_{\mathrm{grid}}}
 \newcommand{\epsa}{\varepsilon_{\mathrm{alias}}}
 \newcommand{\code}[1]{\texttt{#1}}
-\title{Supplementary Material:\\Certified Residual Bounds for a Finite\\Gravity--Capillary Wave Profile}
-\author{}
+\title{Supplementary Material for\\Rigorously Certified Neural-Network Computation of Nonlinear Water Waves at Near-Machine Precision}
+\author{Michal Shavit, Yongji Wang and Tristan Buckmaster\\[0.5em]
+\small Courant Institute of Mathematical Sciences, New York University\\
+\small New York, NY 10012, USA}
 \date{}
 
 \begin{document}
 \maketitle
+
+\noindent This document accompanies the main paper and provides the detailed mathematical estimates, implementation description and certificate data supporting its computer-assisted uniform residual bound.
 
 \begin{abstract}
 We describe the computer-assisted proof of a uniform residual bound for a
@@ -339,7 +343,9 @@ The four estimates now follow in the order
  yH[y_u]\quad\longrightarrow\quad H[yy_u]\quad\longrightarrow\quad
  \partial_u(y_u/D)\quad\longrightarrow\quad H[\partial_uG].
 \end{equation}
-The first term uses Path A. The remaining three terms use Path B.
+The first term uses Path A. The second uses the sampled transform.
+Both capillary terms use nonlinear interval Taylor data; only the last
+requires a further sampled Hilbert transform.
 
 \section{First term: the Path-A product \texorpdfstring{$yH[y_u]$}{yH[yu]}}
 \label{sec:product}
@@ -1055,18 +1061,10 @@ denominator theorem uses the denominator anchor. The convention and
 sign-alignment results are proved independently of the certificate-specific
 numerical assumptions.
 
-For locating the certificate-specific files, the generated data and axiom
-modules share the prefix
-\begin{center}
-\small\code{CertificatePhase4ScalarN150}\allowbreak
-\code{Phase420260827HalfDC},
-\end{center}
-with suffixes \code{.lean} and \code{Axioms.lean}, respectively. The
-public theorem module uses the prefix
-\begin{center}
-\small\code{MainPhase4ScalarN150}\allowbreak
-\code{Phase420260827HalfDC},
-\end{center}
-and the audit module is \code{AuditPhase4ScalarN150HalfDC.lean}.
+The certificate-specific files are in \code{Lean/WaveCAP/} in the paper
+repository. The generated data module is \code{PaperCertificate.lean},
+and the numerical assumptions are declared in
+\code{PaperCertificateAxioms.lean}. The public theorem module is
+\code{PaperTheorems.lean}, and the audit module is \code{PaperAudit.lean}.
 
 \end{document}
