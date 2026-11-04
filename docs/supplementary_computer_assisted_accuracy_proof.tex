@@ -10,18 +10,6 @@
 \usepackage{microtype}
 \usepackage{booktabs}
 \usepackage[hidelinks]{hyperref}
-\usepackage{eso-pic,tikz}
-% Draft watermark on every page; transparency preserves text legibility.
-\AddToShipoutPictureFG{%
-  \AtPageCenter{%
-    \makebox(0,0){%
-      \begin{tikzpicture}
-        \node[rotate=45,text=red,text opacity=0.18,inner sep=0pt]
-          {\sffamily\bfseries\fontsize{92}{92}\selectfont DRAFT};
-      \end{tikzpicture}%
-    }%
-  }%
-}
 \setlength{\emergencystretch}{2em}
 \numberwithin{equation}{section}
 \newtheorem{proposition}{Proposition}[section]
@@ -71,24 +59,26 @@ We use the $2\pi$-periodic Hilbert-transform convention
  \qquad k\geq1.
  \label{eq:H-convention}
 \end{equation}
-Introduce
-\begin{equation}
- A=y_u,\qquad \HH=H[y_u],\qquad B=1+\HH,\qquad
- D=\sqrt{A^2+B^2},\qquad Q=\frac{A}{D},\qquad G=\frac{B}{D}.
- \label{eq:auxiliaries}
-\end{equation}
-We establish a positive lower bound for $D$ before constructing the
-quotients. With the sign convention of the manuscript, the residual is
+With the sign convention of the manuscript, the residual is
 \begin{equation}
  \begin{split}
  R(y)=-\mathcal B(y)
- &=\mu\HH-y-P-T+\beta L-\beta K,\\
- P&=y\HH,\qquad T=H[yy_u],\qquad
- L=Q',\qquad K=H[G'].
+ ={}&\mu H[y_u]-y-yH[y_u]-H[yy_u]\\
+ &+\beta\,\partial_u\!\left(
+ \frac{y_u}{\sqrt{y_u^2+(1+H[y_u])^2}}\right)
+ -\beta H\!\left[\partial_u\!\left(
+ \frac{1+H[y_u]}{\sqrt{y_u^2+(1+H[y_u])^2}}\right)\right].
  \end{split}
  \label{eq:residual}
 \end{equation}
-A prime denotes differentiation with respect to $u$.
+We introduce the shorthands
+\begin{equation}
+ D=\sqrt{y_u^2+(1+H[y_u])^2},\qquad
+ G=\frac{1+H[y_u]}{D}.
+ \label{eq:auxiliaries}
+\end{equation}
+We establish a positive lower bound for $D$ before constructing the
+quotients.
 
 For the fixed stored parameters $\mu$ and $\beta$, the purpose of the
 calculation is to prove
@@ -110,7 +100,7 @@ the linearized operator and a suitable existence argument.
 The proof proceeds as follows.
 \begin{enumerate}
  \item Use the finite Fourier representation to evaluate $y$, $y_u$,
- $\HH$, and their derivatives, with outward rounding.
+ $H[y_u]$, and their derivatives, with outward rounding.
  \item Build local derivative intervals and global derivative bounds for
  the four nonlinear terms. Finite Hilbert transforms use Path A;
  sampled transforms with analytic aliasing corrections use Path B.
@@ -160,9 +150,8 @@ the factor $1/m!$ is introduced in the Taylor expansion. We also write
 \end{equation}
 For an Arb ball $[c\mathbin{\pm}r]=[c-r,c+r]$, this is $|c|+r$.
 
-Arb evaluates elementary operations, including $\pi$, trigonometric
-functions, products, and admissible square roots and reciprocals, with
-outward rounding. The working precision is specified with the run
+Arb evaluates elementary arithmetic operations, trigonometric functions,
+and admissible square roots and reciprocals with outward rounding. The working precision is specified with the run
 parameters in Section~\ref{sec:numerics}. A symbol
 $C_m(F)$ always denotes a nonnegative scalar upper bound; if its defining
 expression is computed as a ball, the outward upper endpoint is used.
@@ -194,14 +183,14 @@ The finite representation retains every generated Fourier mode. Arb
 encloses rounding in coefficient arithmetic and evaluation, and products
 retain the degree they generate.
 
-Applied to the candidate, Path A gives
+Write $\HH=H[y_u]$. Applied to the candidate, Path A gives
 \begin{equation}
- A(u)=-\sum_{k=1}^{N}ka_k\sin(ku),\qquad
+ y_u(u)=-\sum_{k=1}^{N}ka_k\sin(ku),\qquad
  \HH(u)=\sum_{k=1}^{N}ka_k\cos(ku).
  \label{eq:A-Hy}
 \end{equation}
-The latter expression is used both in $P=y\HH$ and in the capillary
-quantity $B=1+\HH$.
+The latter expression is used in the product $y\HH$ and in the capillary
+denominator $D$.
 
 Finite coefficient sums provide global derivative bounds:
 \begin{equation}
@@ -215,18 +204,17 @@ for the candidate are
 \begin{align}
  C_0(y)&=\frac{|a_0|}{2}+\sum_{k=1}^{N}|a_k|,
  &C_m(y)&=\sum_{k=1}^{N}k^m|a_k|\quad(m\geq1),\label{eq:y-bounds}\\
- C_m(A)&=\sum_{k=1}^{N}k^{m+1}|a_k|,
+ C_m(y_u)&=\sum_{k=1}^{N}k^{m+1}|a_k|,
  &C_m(\HH)&=\sum_{k=1}^{N}k^{m+1}|a_k|\quad(m\geq0).
  \label{eq:A-Hy-bounds}
 \end{align}
-Thus $C_0(B)=1+C_0(\HH)$ and $C_m(B)=C_m(\HH)$ for $m\geq1$
-are valid bounds. Evaluating the differentiated finite series at the nodes
-supplies $I_{j,m}$ directly.
+Evaluating the differentiated finite series at the nodes supplies
+$I_{j,m}$ directly.
 
 \subsection{Path B: interval data and a certified sampled transform}
 \label{sec:path-b}
 
-The quotients in \eqref{eq:auxiliaries} generally have infinitely many
+The capillary quotients $y_u/D$ and $G$ generally have infinitely many
 Fourier modes even though $y$ is a finite polynomial. Path B works from
 interval-enclosed samples and derivatives, and corrects a discrete Hilbert
 transform to enclose the continuous one. Its nonlinear input data are
@@ -235,7 +223,7 @@ constructed by interval Taylor arithmetic.
 Let $F$ be a smooth periodic function. For even $\Ngrid$, the discrete
 Hilbert transform has multipliers $-i$ on positive principal frequencies,
 $+i$ on negative principal frequencies, and zero on the constant and
-Nyquist modes. At a node it can be written as
+Nyquist ($\Ngrid/2$) modes. At a node it can be written as
 \begin{equation}
  H_{\Ngrid}[F](u_j)=\sum_{n=0}^{\Ngrid-1}h_n
  F(u_{j-n\bmod\Ngrid}),\qquad
@@ -247,10 +235,12 @@ Nyquist modes. At a node it can be written as
  \label{eq:discrete-H}
 \end{equation}
 This kernel is the inverse discrete Fourier transform of the multiplier.
-The implementation computes the circular convolution by certified Arb
-complex-ball polynomial multiplication and folding modulo $x^{\Ngrid}-1$.
-Outward rounding encloses errors in the kernel, input samples, and
-convolution arithmetic.
+The circular convolution is computed by multiplying polynomials whose
+coefficients are the kernel and sampled values, then wrapping the resulting
+coefficient indices modulo $\Ngrid$.
+The convolution is evaluated using interval arithmetic with outward
+rounding, so the resulting intervals contain the exact discrete
+Hilbert-transform values.
 
 \paragraph{Correction for aliasing.}
 Write
@@ -274,7 +264,8 @@ Consequently, for even $\Ngrid\geq4$,
  =:\epsa(F;p).
  \label{eq:alias}
 \end{align}
-The last step uses the integral test. Adding the symmetric interval
+The last inequality follows by bounding the decreasing sum by the integral
+$\int_{\Ngrid/2-1}^{\infty}x^{-p}\,dx$. Adding the symmetric interval
 $[-\epsa(F;p),\epsa(F;p)]$ to the discrete output therefore encloses the
 continuous transform at each node.
 
@@ -321,7 +312,7 @@ Both pathways use the exact Leibniz identity to form product records:
 \end{align}
 The first line uses signed interval arithmetic; the second is a
 nonnegative upper bound. Square roots and reciprocals use composition
-formulas on intervals separated from their singularities. The denominator
+formulas on intervals with strictly positive lower endpoints. The denominator
 and quotient identities in Section~\ref{sec:local-capillary} give explicit
 bounds for their higher derivatives.
 
@@ -348,9 +339,7 @@ The four estimates now follow in the order
  yH[y_u]\quad\longrightarrow\quad H[yy_u]\quad\longrightarrow\quad
  \partial_u(y_u/D)\quad\longrightarrow\quad H[\partial_uG].
 \end{equation}
-The first uses Path A. The second uses the sampled transform in the
-implemented route. Both capillary terms use nonlinear interval Taylor
-data; only the last requires a further sampled Hilbert transform.
+The first term uses Path A. The remaining three terms use Path B.
 
 \section{First term: the Path-A product \texorpdfstring{$yH[y_u]$}{yH[yu]}}
 \label{sec:product}
@@ -433,18 +422,18 @@ bounds can improve subsequent estimates.
 
 \subsection{Forming the input before applying the transform}
 
-Let $F=yy_u=yA$. Construct its signed derivative intervals by
+Let $F=yy_u$. Construct its signed derivative intervals by
 \begin{equation}
  I_{j,m}(F)=\sum_{r=0}^{m}\binom mr
- I_{j,r}(y)I_{j,m-r}(A).
+ I_{j,r}(y)I_{j,m-r}(y_u).
  \label{eq:F-local}
 \end{equation}
 The corresponding global bounds are
 \begin{equation}
- C_m(F)=\sum_{r=0}^{m}\binom mr C_r(y)C_{m-r}(A).
+ C_m(F)=\sum_{r=0}^{m}\binom mr C_r(y)C_{m-r}(y_u).
  \label{eq:F-global}
 \end{equation}
-Equivalently, one may substitute $A^{(s)}=y^{(s+1)}$. This makes explicit
+Equivalently, one may substitute $(y_u)^{(s)}=y^{(s+1)}$. This makes explicit
 that forming the product at a given derivative order requires one more
 derivative of $y$ in the $y_u$ factor. All these input bounds come from
 finite coefficient sums and, where used, valid tightening.
@@ -492,7 +481,7 @@ of its nonlinear input.
 The local capillary term is
 \begin{equation}
  L=\partial_u\!\left(\frac{y_u}{D}\right)=Q',\qquad
- Q=\frac{A}{D},\qquad D=\sqrt{A^2+B^2}.
+ Q=\frac{y_u}{D}.
  \label{eq:L}
 \end{equation}
 Its difficulty is the nonlinear denominator. The term is constructed
@@ -503,16 +492,30 @@ valid everywhere.
 \subsection{A Lipschitz lower bound for the denominator}
 \label{sec:D-positive}
 
+For the denominator estimates, set
+\begin{equation}
+ A=y_u,\qquad B=1+H[y_u],\qquad D=\sqrt{A^2+B^2}.
+ \label{eq:denominator-shorthands}
+\end{equation}
+The Path-A bounds give
+\begin{equation}
+ \begin{aligned}
+ C_m(A)&=C_m(y_u),&&m\geq0,\\
+ C_0(B)&=1+C_0(\HH),\qquad
+ C_m(B)=C_m(\HH),&&m\geq1.
+ \end{aligned}
+ \label{eq:AB-bounds}
+\end{equation}
 At each node, evaluate $A$, $B$, and $\sqrt{A^2+B^2}$ using outward
 rounding, and let $\underline D_j$ be a lower endpoint for $D(u_j)$.
 At this stage the square root evaluates the Euclidean norm of $(A,B)$.
 The interval squares are restricted to their known nonnegative range.
 
 \begin{proposition}
-Let $L_A\geq\norm{A'}$ and $L_B\geq\norm{B'}$. Then
+The first-derivative bounds give
 \begin{equation}
  D(u)\geq d_{\mathrm{Lip}}:=
- \min_{0\leq j<\Ngrid}\underline D_j-h(L_A+L_B)
+ \min_{0\leq j<\Ngrid}\underline D_j-h(C_1(A)+C_1(B))
  \quad\text{for all }u\in\mathbb R.
  \label{eq:D-Lip}
 \end{equation}
@@ -525,15 +528,15 @@ The reverse triangle inequality in $\mathbb R^2$ gives
  |D(u)-D(v)|
  &\leq\sqrt{(A(u)-A(v))^2+(B(u)-B(v))^2}\notag\\
  &\leq|A(u)-A(v)|+|B(u)-B(v)|\notag\\
- &\leq(L_A+L_B)|u-v|.
+ &\leq(C_1(A)+C_1(B))|u-v|.
  \label{eq:D-Lipschitz-proof}
 \end{align}
 For $u=u_j+t$, $0\leq t\leq h$, we obtain
-$D(u)\geq\underline D_j-h(L_A+L_B)$. Taking the minimum over the cells
+$D(u)\geq\underline D_j-h(C_1(A)+C_1(B))$. Taking the minimum over the cells
 and using periodicity proves \eqref{eq:D-Lip}.
 \end{proof}
 
-The constants $L_A=C_1(A)$ and $L_B=C_1(B)$ are available from Path A.
+The bounds $C_1(A)$ and $C_1(B)$ are available from Path A.
 The argument establishes positivity using bounds on $A$, $B$, and their
 first derivatives. Reciprocal evaluation proceeds once the computed
 lower bound is strictly positive.
@@ -642,7 +645,7 @@ bound on the derivative of order $M+1$.
 \section{Fourth term: the nonlocal capillary estimate}
 \label{sec:nonlocal-capillary}
 
-The final term is $K=H[G']$ with $G=B/D$. It combines the nonlinear
+The final term is $H[G']$ with $G=B/D$. It combines the nonlinear
 quotient construction with a sampled Hilbert transform. It therefore
 requires every ingredient developed for the preceding terms.
 
@@ -682,7 +685,7 @@ Apply the certified convolution to each derivative column of $G'$. For
 $0\leq m\leq M$, the output record is
 \begin{equation}
  \boxed{\begin{aligned}
- I_{j,m}(K)&=\mathcal H_{j,m}(G')+[-e_m(G'),e_m(G')],\\
+ I_{j,m}(H[G'])&=\mathcal H_{j,m}(G')+[-e_m(G'),e_m(G')],\\
  e_m(G')&=\frac{4C_{m+p+1}(G)}{(p-1)(\Ngrid/2-1)^{p-1}}.
  \end{aligned}}
  \label{eq:K-local}
@@ -693,8 +696,8 @@ contribution of its unresolved modes to the transform error.
 
 For the final remainder we use
 \begin{equation}
- K^{(M+1)}=H[G^{(M+2)}],\qquad
- \boxed{C_{M+1}(K)=\frac{\pi^2}{3}C_{M+4}(G).}
+ \bigl(H[G']\bigr)^{(M+1)}=H[G^{(M+2)}],\qquad
+ \boxed{C_{M+1}(H[G'])=\frac{\pi^2}{3}C_{M+4}(G).}
  \label{eq:K-remainder-bound}
 \end{equation}
 This shows why high derivatives of the quotient matter. An order-$M$
@@ -705,8 +708,8 @@ $p=2$ would use $C_{m+3}(G)$ for the local corrections, through order
 $M+3$. This example illustrates how the derivative requirements depend
 on the chosen decay order $p$.
 
-The contribution to the residual is $-\beta I_{j,m}(K)$. Its global
-contribution to the derivative bound of order $M+1$ is $|\beta|C_{M+1}(K)$.
+The contribution to the residual is $-\beta I_{j,m}(H[G'])$. Its global
+contribution to the derivative bound of order $M+1$ is $|\beta|C_{M+1}(H[G'])$.
 
 \subsection{Derivative information required by the four terms}
 
@@ -725,7 +728,7 @@ $P=y\HH$ & $y,\HH$ through order $M$ &
 $T=H[yy_u]$ & $yy_u$ through order $M$ &
  $\displaystyle\frac{\pi^2}{3}C_{M+3}(yy_u)$\\[2ex]
 $L=Q'$ & $Q$ through order $M+1$ & $C_{M+2}(Q)$\\[1ex]
-$K=H[G']$ & $G$ through order $M+1$ &
+$H[G']$ & $G$ through order $M+1$ &
  $\displaystyle\frac{\pi^2}{3}C_{M+4}(G)$\\[1ex]
 \bottomrule
 \end{tabular}
@@ -744,7 +747,7 @@ $0\leq m\leq M$, form the interval
  \begin{split}
  I_{j,m}(R)={}&\mu I_{j,m}(\HH)-I_{j,m}(y)
  -I_{j,m}(P)-I_{j,m}(T)\\
- &+\beta I_{j,m}(L)-\beta I_{j,m}(K).
+ &+\beta I_{j,m}(L)-\beta I_{j,m}(H[G']).
  \end{split}
  \label{eq:R-local}
 \end{equation}
@@ -760,7 +763,7 @@ inequality:
 \begin{equation}
  \begin{split}
  C_{M+1}(R)={}&|\mu|C_{M+1}(\HH)+C_{M+1}(y)+C_{M+1}(P)+C_{M+1}(T)\\
- &+|\beta|\bigl(C_{M+1}(L)+C_{M+1}(K)\bigr).
+ &+|\beta|\bigl(C_{M+1}(L)+C_{M+1}(H[G'])\bigr).
  \end{split}
  \label{eq:R-remainder-bound}
 \end{equation}
@@ -840,7 +843,7 @@ bound-expression ball.
 The denominator endpoint is approximately
 $0.34465883518530396$. Exact rational comparisons give the outward-safe
 bounds in \eqref{eq:result}. The residual certificate quantifies the
-assembled expression containing $P$, $T$, $L$, and $K$.
+assembled expression containing $P$, $T$, $L$, and $H[G']$.
 
 The phrase ``near machine precision'' refers here to the certified total
 residual bound $1.78\times10^{-13}$. For reference, IEEE double precision
