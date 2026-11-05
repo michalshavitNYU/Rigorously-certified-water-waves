@@ -115,6 +115,3 @@ The dedicated final theorem relies on `cert_arb_dmin_bound` and
 `cert_arb_sup_bound_le_eps0`. They encode numerical claims verified by the
 external interval-arithmetic calculation. Existence theorems for abstract
 Taylor records do not identify those records with serialized Arb arrays.
-
-The [standalone mathematical note](../docs/y_hilbert_yu_interval_estimate.pdf)
-gives ordinary statements and proofs, along with exact source correspondences.

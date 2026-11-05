@@ -118,7 +118,5 @@ publication verification status.
 
 - [Computer-assisted accuracy proof (PDF)](docs/supplementary_computer_assisted_accuracy_proof.pdf)
 - [LaTeX source for the supplement](docs/supplementary_computer_assisted_accuracy_proof.tex)
-- [Detailed estimate of `y H[y_u]`, with ordinary theorems and proofs](docs/y_hilbert_yu_interval_estimate.pdf)
-- [Standalone LaTeX source](docs/y_hilbert_yu_interval_estimate.tex)
 - [Documentation index](docs/README.md)
 - [Source provenance](PROVENANCE.md)
