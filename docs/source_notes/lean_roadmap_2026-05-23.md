@@ -84,7 +84,7 @@ trust footprint that paper-level CAPs aim for.
 ## 2. Inventory of missing pieces
 
 Cross-reference: [changes_2026-05-22_midpoint_convention.md](changes_2026-05-22_midpoint_convention.md)
-and the [Julia source](../BabenkoRigorous/src/).
+and the [Julia source](../../Julia/src/).
 
 | Area | Julia source | Lean status (2026-05-24) | File |
 |---|---|---|---|

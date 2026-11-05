@@ -19,10 +19,10 @@ The project convention — established in cap-ccf and meant to apply throughout
 This keeps the invariant `midpoint = best estimate of the value,
 radius = rigorous looseness`. The cap-ccf reference implementations:
 
-- [`cap-ccf/.../taylor_series.jl:298`](../../../CAP/cap-ccf/pkg/CCFBlowup.jl/src/taylor_series.jl):
+- `cap-ccf/.../taylor_series.jl:298`:
   `return add_error(taylor_sum, abs(remainder))` — Taylor evaluation with
   remainder ball.
-- [`cap-ccf/.../taylor_series.jl:382`](../../../CAP/cap-ccf/pkg/CCFBlowup.jl/src/taylor_series.jl):
+- `cap-ccf/.../taylor_series.jl:382`:
   `Arblib.add_error!(s, rem_radius)` — `shift_taylor`.
 
 `FFTHilbert.jl:191` in this repo already follows the convention:
